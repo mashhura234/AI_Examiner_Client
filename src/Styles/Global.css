@@ -1,0 +1,85 @@
+/* src/Styles/global.css */
+/* Inter = UI text. Playfair Display = the serif headings ("Welcome to", "Welcome Back", "Create Account"). */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&display=swap');
+
+/* Design tokens (new, additive). Not used by other pages unless they opt in. */
+:root {
+  --ai-navy-900: #0a1f6b;
+  --ai-navy-700: #0b2a8a;
+  --ai-blue-600: #1d4ed8;
+  --ai-blue-500: #2563eb;
+  --ai-blue-300: #93c5fd;
+  --ai-blue-100: #dbeafe;
+  --ai-ink: #0b1b4d;
+  --ai-font-ui: 'Inter', sans-serif;
+  --ai-font-display: 'Playfair Display', Georgia, serif;
+
+  /* ---- Bright page background used after login (Dashboard, Exam, Syllabus, ...) ----
+     Change just these three colors to re-theme every logged-in page.
+     Default  = Sky      : #f5f9ff / #e4eeff / #cfe1ff
+     Clean white         : #ffffff / #f6f8fc / #e9eef7
+     Fresh mint          : #f4fffb / #dff7ee / #bfeadb
+     Soft lavender       : #faf8ff / #ece8ff / #d9d2fb  */
+  --page-bg-start: #f5f9ff;
+  --page-bg-mid: #e4eeff;
+  --page-bg-end: #cfe1ff;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+/* DEFAULT page background = every page EXCEPT the public landing page and the Login/Register pages.
+   Those three set their own background in Home.css / Login.css with body:has(...), which wins over this rule.
+   So this is what you see after logging in. */
+body {
+  background:
+    radial-gradient(ellipse 60% 50% at 8% 0%, rgba(255, 255, 255, 0.95) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 45% at 100% 8%, rgba(125, 177, 255, 0.45) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 100%, rgba(147, 197, 253, 0.55) 0%, transparent 70%),
+    linear-gradient(160deg, var(--page-bg-start) 0%, var(--page-bg-mid) 50%, var(--page-bg-end) 100%);
+  background-attachment: fixed;
+  color: #1e293b;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Background Graphic Element 1: Decorative Dot Grid (blue dots so they show on the bright background) */
+body::before {
+  content: '';
+  position: fixed;
+  top: 40px;
+  right: 60px;
+  width: 180px;
+  height: 180px;
+  background-image: radial-gradient(rgba(37, 99, 235, 0.3) 2px, transparent 2px);
+  background-size: 16px 16px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.7;
+}
+
+/* The landing page and the Login/Register pages sit on a blue backdrop, so they keep the white dots */
+body:has(.landing-hero-wrapper)::before,
+body:has(.auth-page-container)::before {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.4) 2px, transparent 2px);
+}
+
+/* Background Graphic Element 2: soft light-blue glow (was a dark glow on the old dark background) */
+body::after {
+  content: '';
+  position: fixed;
+  top: -10%;
+  right: -5%;
+  width: 70vw;
+  height: 110vh;
+  background: radial-gradient(circle at 60% 40%, rgba(96, 165, 250, 0.2) 0%, rgba(147, 197, 253, 0.1) 40%, transparent 75%);
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+}
