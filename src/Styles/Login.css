@@ -2,6 +2,7 @@
    Applies to: src/Components/Pages/Login.tsx
    ALSO shared by Register.tsx, because Register reuses the same .auth-* classes
    (Register.css only adds the extra bits that are specific to the sign-up form).
+   New elements (eye button, Remember me row, Forgot link) are styled in AuthExtras.css.
 */
 
 /* Deep blue page backdrop, only while an auth card is on screen */
@@ -18,7 +19,7 @@ body:has(.auth-page-container)::after {
 }
 
 .auth-page-container {
-  /* Icons for the inputs and avatar, drawn as inline SVG so no TSX change or image files are needed */
+  /* Icons for the inputs and avatar, drawn as inline SVG so no image files are needed */
   --auth-icon-mail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/%3E%3Cpolyline points='22,6 12,13 2,6'/%3E%3C/svg%3E");
   --auth-icon-lock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
   --auth-icon-user: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
@@ -121,7 +122,7 @@ body:has(.auth-page-container)::after {
   filter: drop-shadow(0 4px 10px rgba(96, 165, 250, 0.6));
 }
 
-/* Login.tsx / Register.tsx render "Welcome<br />Back" and "Create<br />Account" as one <h2>:
+/* "Welcome<br />Back" / "Create<br />Account" are one <h2>:
    ::first-line styles the first word (white serif), the rest is the light-blue italic. */
 .auth-hero-panel h2 {
   margin-bottom: 18px;
@@ -202,7 +203,7 @@ body:has(.auth-page-container)::after {
   box-shadow: 0 10px 30px rgba(37, 99, 235, 0.25), inset 0 -4px 10px rgba(147, 197, 253, 0.35);
 }
 
-/* Register page gets the "user + plus" avatar (class exists on Register.tsx's container) */
+/* Register page gets the "user + plus" avatar */
 .auth-form-container.register-form-container::before {
   background:
     var(--auth-avatar-user-plus) center / 42px no-repeat,
@@ -320,13 +321,14 @@ body:has(.auth-page-container)::after {
 .auth-form > .auth-input-group:nth-child(1)::before { background-image: var(--auth-icon-mail); }
 .auth-form > .auth-input-group:nth-child(2)::before { background-image: var(--auth-icon-lock); }
 
-/* Register grid icons: first name, last name, email, password, phone, address */
+/* Register grid icons (7 fields): first name, last name, email, password, confirm password, phone, address */
 .register-grid > .auth-input-group:nth-child(1)::before,
 .register-grid > .auth-input-group:nth-child(2)::before { background-image: var(--auth-icon-user); }
 .register-grid > .auth-input-group:nth-child(3)::before { background-image: var(--auth-icon-mail); }
-.register-grid > .auth-input-group:nth-child(4)::before { background-image: var(--auth-icon-lock); }
-.register-grid > .auth-input-group:nth-child(5)::before { background-image: var(--auth-icon-phone); }
-.register-grid > .auth-input-group:nth-child(6)::before { background-image: var(--auth-icon-pin); }
+.register-grid > .auth-input-group:nth-child(4)::before,
+.register-grid > .auth-input-group:nth-child(5)::before { background-image: var(--auth-icon-lock); }
+.register-grid > .auth-input-group:nth-child(6)::before { background-image: var(--auth-icon-phone); }
+.register-grid > .auth-input-group:nth-child(7)::before { background-image: var(--auth-icon-pin); }
 
 /* ---------- Submit button ---------- */
 .auth-submit-btn {
@@ -403,3 +405,145 @@ body:has(.auth-page-container)::after {
     box-shadow: 0 -12px 30px rgba(5, 20, 90, 0.3);
   }
 }
+
+/* =====================================================================
+   NEW ADDITIONS (used by Login.tsx and Register.tsx)
+   Password show/hide button, Remember me row, Forgot Password link
+   ===================================================================== */
+
+/* ---------- Show / hide password button ---------- */
+.auth-input-group:has(.password-toggle) input {
+  padding-right: 56px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: #4f6fb8;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.password-toggle:hover {
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.7);
+}
+
+.password-toggle:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.55);
+  outline-offset: 1px;
+}
+
+/* ---------- "Remember me" + "Forgot Password?" row ---------- */
+.auth-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -2px 0 6px;
+  font-size: 0.9rem;
+}
+
+.remember-me {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #1e3a8a;
+  cursor: pointer;
+  user-select: none;
+}
+
+.remember-me input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-content: center;
+  border: 1.5px solid #7aa2ee;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.remember-me input::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 0.15s ease;
+}
+
+.remember-me input:checked {
+  border-color: #0a1f6b;
+  background: linear-gradient(180deg, #1a3fa8 0%, #0a1f6b 100%);
+}
+
+.remember-me input:checked::after {
+  transform: scale(1);
+}
+
+.remember-me input:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+.forgot-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #1d4ed8;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.forgot-link:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* =====================================================================
+   Real illustrations in the left panel of Login / Register (shared by both pages).
+   1) Save your cropped images as:
+        src/assets/auth-login-illustration.png
+        src/assets/auth-register-illustration.png
+   2) Switched on. Delete this block to go back to the emoji.
+   ---------------------------------------------------------------------*/
+.auth-hero-graphic {
+  width: 100%;
+  max-width: 300px;
+  height: 250px;
+  font-size: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: url('../assets/auth-login-illustration.png') left bottom / contain no-repeat;
+  -webkit-mask-image: radial-gradient(ellipse 75% 75% at 45% 55%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 75% 75% at 45% 55%, #000 55%, transparent 100%);
+}
+
+.auth-split-card:has(.register-form-container) .auth-hero-graphic {
+  background-image: url('../assets/auth-register-illustration.png');
+}
+/* ===================================================================== */

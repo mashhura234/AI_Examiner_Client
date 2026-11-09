@@ -409,7 +409,7 @@ body:has(.landing-hero-wrapper)::after {
    2) Uncomment this block (the path is relative to src/Styles).
    ---------------------------------------------------------------------*/
    .hero-graphic-container {
-     background: url('../assets/hero-illustration.png') center / contain no-repeat;
+     background: url('../assets/home.png') center / contain no-repeat;
    }
    .hero-graphic-container::after,
    .graphic-backdrop-glow,

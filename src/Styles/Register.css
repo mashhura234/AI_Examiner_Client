@@ -1,7 +1,7 @@
 /* src/Styles/Register.css
    Applies to: src/Components/Pages/Register.tsx
    Builds on the shared .auth-* styles in Login.css (card, hero panel, pill switch, inputs, button).
-   Only the sign-up specific parts live here.
+   Only the sign-up specific parts live here. Includes the 7-field grid (Confirm Password added).
 */
 
 /* Compound selector so this wins over .auth-form-container without needing !important */
@@ -50,6 +50,17 @@
   cursor: pointer;
 }
 
+/* ---------- Register grid now has 7 fields (Confirm Password added after Password) ----------
+   Order: 1 First, 2 Last, 3 Email, 4 Password, 5 Confirm Password, 6 Contact, 7 Address */
+.register-grid > .auth-input-group:nth-child(5)::before { background-image: var(--auth-icon-lock); }
+.register-grid > .auth-input-group:nth-child(6)::before { background-image: var(--auth-icon-phone); }
+.register-grid > .auth-input-group:nth-child(7)::before { background-image: var(--auth-icon-pin); }
+
+/* Address takes the full row so the 2-column grid stays balanced */
+.register-grid > .auth-input-group:nth-child(7) {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 820px) {
   .auth-form-container.register-form-container {
     padding: 32px 24px 28px;
@@ -59,5 +70,10 @@
 @media (max-width: 560px) {
   .register-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* single column: Address no longer needs to span two columns */
+  .register-grid > .auth-input-group:nth-child(7) {
+    grid-column: auto;
   }
 }

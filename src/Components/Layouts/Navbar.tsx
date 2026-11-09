@@ -18,7 +18,7 @@ export const Navbar: React.FC = () => {
                 <Link to="/">AI EXAMINER</Link>
             </h3>
             <div className="navbar-links">
-                <Link to="/" className="nav-item-active">Home</Link>
+                
                 
                 {!isAuthenticated ? (
                     <div className="nav-auth-buttons">
