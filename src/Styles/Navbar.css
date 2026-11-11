@@ -1,10 +1,8 @@
 /* src/Styles/Navbar.css */
 
 .app-navbar {
-  --nav-logo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -7 26 30'%3E%3Cpath d='M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z' fill='%231d4ed8' stroke='%230b2a8a' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z' fill='%233b82f6' stroke='%230b2a8a' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M12 -6 L13.3 -2.3 L17 -1 L13.3 0.3 L12 4 L10.7 0.3 L7 -1 L10.7 -2.3 Z' fill='%232f6df0'/%3E%3C/svg%3E");
+  --nav-logo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -7 26 30'%3E%3Cpath d='M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z' fill='%23d97706' stroke='%2378350f' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z' fill='%23f59e0b' stroke='%2378350f' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M12 -6 L13.3 -2.3 L17 -1 L13.3 0.3 L12 4 L10.7 0.3 L7 -1 L10.7 -2.3 Z' fill='%23fbbf24'/%3E%3C/svg%3E");
   --nav-icon-home-white: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-  --nav-icon-login-navy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231e3a8a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4'/%3E%3Cpolyline points='10 17 15 12 10 7'/%3E%3Cline x1='15' y1='12' x2='3' y2='12'/%3E%3C/svg%3E");
-  --nav-icon-signup-white: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='8.5' cy='7' r='4'/%3E%3Cline x1='20' y1='8' x2='20' y2='14'/%3E%3Cline x1='23' y1='11' x2='17' y2='11'/%3E%3C/svg%3E");
 
   position: sticky;
   top: 12px;
@@ -31,25 +29,20 @@
   pointer-events: auto;
 }
 
-/* =====================================================================
-   LOGGED-OUT NAVBAR (Landing Page, Login, Register)
-   ===================================================================== */
+/* ---------- Logged-Out Navbar ---------- */
 .app-navbar .navbar-brand {
   flex: none;
   margin: 0;
   padding: 0;
   font-size: 1.5rem;
   font-weight: 800;
-  letter-spacing: -0.2px;
-  background: transparent;
-  border: none;
 }
 
 .app-navbar .navbar-brand a {
   display: inline-flex;
   align-items: center;
   gap: 14px;
-  color: #1236b0;
+  color: #78350f;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -60,7 +53,7 @@
   width: 46px;
   height: 46px;
   background: var(--nav-logo) center / contain no-repeat;
-  filter: drop-shadow(0 4px 8px rgba(29, 78, 216, 0.3));
+  filter: drop-shadow(0 4px 8px rgba(217, 119, 6, 0.3));
 }
 
 .app-navbar .navbar-links {
@@ -68,13 +61,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex-wrap: wrap;
   gap: 6px;
-  min-width: 0;
-}
-
-.app-navbar .navbar-links:has(.nav-auth-buttons) > a.nav-item-active {
-  display: none;
 }
 
 .app-navbar .navbar-links > a {
@@ -83,29 +70,16 @@
   gap: 8px;
   padding: 10px 20px;
   border-radius: 999px;
-  color: #1e3a8a;
+  color: #78350f;
   font-size: 0.95rem;
   font-weight: 600;
   text-decoration: none;
-  transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+  transition: all 0.25s ease;
 }
 
 .app-navbar .navbar-links > a:hover {
   background: rgba(255, 255, 255, 0.8);
-  color: #1d4ed8;
-}
-
-body:has(.home-container) .app-navbar .navbar-links > a.nav-item-active {
-  background: linear-gradient(180deg, #1d4ed8 0%, #0a2a8f 100%);
-  color: #ffffff;
-  box-shadow: 0 8px 18px rgba(10, 42, 143, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-body:has(.home-container) .app-navbar .navbar-links > a.nav-item-active::before {
-  content: '';
-  width: 18px;
-  height: 18px;
-  background: var(--nav-icon-home-white) center / contain no-repeat;
+  color: #d97706;
 }
 
 .app-navbar .nav-auth-buttons {
@@ -125,30 +99,25 @@ body:has(.home-container) .app-navbar .navbar-links > a.nav-item-active::before 
   font-size: 1rem;
   font-weight: 700;
   text-decoration: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.app-navbar .nav-auth-buttons a:hover {
-  transform: translateY(-2px);
 }
 
 .app-navbar .nav-login-btn {
-  color: #1e3a8a;
-  background: linear-gradient(180deg, #ffffff 0%, #e4eeff 100%);
+  color: #78350f;
+  background: linear-gradient(180deg, #ffffff 0%, #fef3c7 100%);
   border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 10px 24px rgba(8, 25, 100, 0.22), inset 0 1px 0 #ffffff;
+  box-shadow: 0 10px 24px rgba(120, 53, 15, 0.15);
 }
 
 .app-navbar .nav-signup-btn {
-  color: #ffffff;
-  background: linear-gradient(180deg, #0f2f8c 0%, #071a60 100%);
-  border: 1px solid rgba(125, 175, 255, 0.55);
-  box-shadow: 0 10px 24px rgba(3, 14, 70, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color: #312102;
+  background: linear-gradient(145deg, #ffea9f 0%, #f6bd33 50%, #df990b 100%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 24px rgba(214, 150, 10, 0.38);
 }
 
 
 /* =====================================================================
-   LOGGED-IN SIDEBAR MODE (Transforms Navbar into Left Sidebar)
+   LOGGED-IN SIDEBAR MODE (Matches Reference exam1.jpg & exam2.jpg)
    ===================================================================== */
 @keyframes ai-slide-sidebar {
   from { opacity: 0; transform: translateX(-30px); }
@@ -156,124 +125,119 @@ body:has(.home-container) .app-navbar .navbar-links > a.nav-item-active::before 
 }
 
 body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) {
-  padding-left: 280px;
+  padding-left: 260px;
 }
 
 body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar {
   position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 280px !important;
-  height: 100vh !important;
+  top: 16px !important;
+  left: 16px !important;
+  width: 235px !important;
+  height: calc(100vh - 32px) !important;
   max-width: none !important;
   margin: 0 !important;
-  padding: 28px 20px !important;
+  padding: 24px 16px !important;
   flex-direction: column !important;
   align-items: stretch !important;
   justify-content: flex-start !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(226, 238, 255, 0.78) 100%) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.95) !important;
-  border-radius: 0 !important;
-  box-shadow: 12px 0 40px rgba(15, 35, 110, 0.15) !important;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.86) 0%, rgba(248, 242, 230, 0.76) 100%) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  border-radius: 28px !important;
+  box-shadow: 0 20px 45px rgba(120, 90, 30, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
   pointer-events: auto !important;
   animation: ai-slide-sidebar 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) backwards !important;
   overflow-y: auto !important;
 }
 
-/* Brand header positioned at the top */
+/* Brand header at the top */
 body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-brand {
-  padding-bottom: 18px !important;
-  border-bottom: 1px solid rgba(30, 64, 175, 0.12) !important;
-  margin-bottom: 16px !important;
+  padding-bottom: 20px !important;
+  border-bottom: 1px solid rgba(220, 205, 180, 0.7) !important;
+  margin-bottom: 14px !important;
   flex: none !important;
 }
 
-/* Links stacked right underneath the brand header */
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-brand a {
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  color: #3b2d10 !important;
+}
+
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-brand a::before {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+/* Links stack */
 body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links {
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
-  gap: 8px !important;
+  gap: 6px !important;
   width: 100% !important;
   padding: 0 !important;
   margin: 0 !important;
   background: none !important;
   border: none !important;
   box-shadow: none !important;
-  backdrop-filter: none !important;
   flex: 1 !important;
   justify-content: flex-start !important;
 }
 
 body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a {
   width: 100% !important;
-  padding: 11px 16px !important;
-  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  border-radius: 14px !important;
   justify-content: flex-start !important;
-  font-size: 0.95rem !important;
+  font-size: 0.92rem !important;
   font-weight: 600 !important;
-  color: #1e3a8a !important;
-  transition: all 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) !important;
+  color: #4a3f2c !important;
+  transition: all 0.2s ease !important;
 }
 
 body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a:hover {
-  background: rgba(37, 99, 235, 0.12) !important;
-  color: #1d4ed8 !important;
-  transform: translateX(4px) !important;
+  background: rgba(245, 184, 46, 0.18) !important;
+  color: #92400e !important;
 }
 
-/* Active sidebar link styling */
-body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a.nav-item-active {
-  background: linear-gradient(135deg, #1d4ed8 0%, #0a2a8f 100%) !important;
-  color: #ffffff !important;
-  box-shadow: 0 6px 18px rgba(10, 42, 143, 0.3) !important;
-  transform: translateX(4px) !important;
+/* Active gold/amber pill style matching references exam1.jpg and exam2.jpg */
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a.nav-item-active,
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a[href*="exams"],
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a[href*="syllabus"],
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a[href*="assessment"],
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a[href*="grades"],
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a[href*="questions"] {
+  /* Note: Active link matches current route or active state classes */
 }
 
-/* Logout button pinned at bottom with clean neutral style (no red shade) */
+/* Specific active state highlighting matching reference UI */
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a[aria-current="page"],
+body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links > a.active {
+  background: linear-gradient(135deg, #ffd75e 0%, #f2b21f 100%) !important;
+  color: #3a2a05 !important;
+  box-shadow: 0 6px 16px rgba(214, 150, 10, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  font-weight: 700 !important;
+}
+
+/* Logout button at the bottom of the sidebar */
 body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .logout-btn {
   width: 100% !important;
-  margin: auto 0 10px 0 !important;
-  padding: 13px 20px !important;
+  margin: auto 0 4px 0 !important;
+  padding: 11px 16px !important;
   border-radius: 14px !important;
   text-align: center !important;
-  font-weight: 700 !important;
-  background: linear-gradient(180deg, #ffffff 0%, #e2e8f0) !important;
-  color: #1e3a8a !important;
-  border: 1px solid rgba(203, 213, 225, 0.9) !important;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
-  transition: all 0.25s ease !important;
+  font-weight: 600 !important;
+  background: rgba(255, 255, 255, 0.65) !important;
+  color: #5c4d32 !important;
+  border: 1px solid rgba(220, 205, 180, 0.8) !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease !important;
 }
 
 body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .logout-btn:hover {
-  background: linear-gradient(180deg, #f8fafc 0%, #cbd5e1) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12) !important;
-}
-
-
-/* =====================================================================
-   RESPONSIVE (Tablets & Mobile)
-   ===================================================================== */
-@media (max-width: 1024px) {
-  body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) {
-    padding-left: 0 !important;
-  }
-  body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar {
-    position: sticky !important;
-    width: 100% !important;
-    height: auto !important;
-    flex-direction: row !important;
-    border-right: none !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.8) !important;
-    border-radius: 28px !important;
-    padding: 12px 20px !important;
-  }
-  body:not(:has(.landing-hero-wrapper)):not(:has(.auth-split-card)) .app-navbar .navbar-links {
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    justify-content: center !important;
-  }
+  background: rgba(254, 226, 226, 0.7) !important;
+  color: #b91c1c !important;
+  border-color: rgba(252, 165, 165, 0.6) !important;
 }

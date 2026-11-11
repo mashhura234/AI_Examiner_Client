@@ -7,11 +7,9 @@ import { Home } from './Components/Pages/Home';
 import { Login } from './Components/Pages/Login';
 import { Register } from './Components/Pages/Register';
 import { Profile } from './Components/Pages/Profile';
-import { Exam } from './Components/Pages/Exam';
-import { Syllabus } from './Components/Pages/Syllabus';
-import { Grade } from './Components/Pages/Grade';
+import ESQ_Manage from './Components/Pages/ESQ_Manage';
 import AssessmentPortal from './Components/Pages/AssessmentPortal';
-import Question from './Components/Pages/Question';
+
 
 function NavigatorSetup() {
   const navigate = useNavigate();
@@ -30,12 +28,9 @@ function AppContent() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/exams" element={<Exam />} />
-        <Route path="/syllabus" element={<Syllabus />} />
+        <Route path="/exams" element={<ESQ_Manage />} />
         <Route path="/assessment" element={<AssessmentPortal />} />
-        <Route path="/grades" element={<Grade />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/questions" element={<Question />} />
       </Routes>
     </>
   );

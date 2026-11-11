@@ -210,8 +210,11 @@ body:has(.auth-page-container)::after {
     radial-gradient(circle at 30% 25%, #ffffff 0%, #e0ecff 100%);
 }
 
-/* ---------- Login / Sign up switch ---------- */
+/* ---------- Login / Sign up switch ----------
+   The dark "thumb" is a pseudo-element that sits under the active tab (left = Login, right = Sign up).
+   The slide between the two positions is animated in Animations.css. */
 .auth-pill-switch {
+  position: relative;
   display: flex;
   width: 100%;
   max-width: 340px;
@@ -222,7 +225,26 @@ body:has(.auth-page-container)::after {
   box-shadow: inset 0 2px 6px rgba(37, 99, 235, 0.12), 0 6px 16px rgba(37, 99, 235, 0.1);
 }
 
+.auth-pill-switch::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 5px;
+  width: calc(50% - 5px);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #14378f 0%, #0a1f6b 100%);
+  box-shadow: 0 8px 18px rgba(10, 31, 107, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Sign up tab active -> thumb sits on the right half */
+.auth-pill-switch:has(.pill-tab:last-child.active)::before {
+  left: 50%;
+}
+
 .pill-tab {
+  position: relative;
+  z-index: 1;
   flex: 1;
   padding: 12px 0;
   border-radius: 999px;
@@ -231,7 +253,7 @@ body:has(.auth-page-container)::after {
   font-weight: 700;
   color: #1d4ed8;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .pill-tab:hover {
@@ -240,9 +262,8 @@ body:has(.auth-page-container)::after {
 
 .pill-tab.active,
 .pill-tab.active:hover {
-  background: linear-gradient(180deg, #14378f 0%, #0a1f6b 100%);
+  background: none;
   color: #ffffff;
-  box-shadow: 0 8px 18px rgba(10, 31, 107, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 /* ---------- Inputs ---------- */

@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { examServices } from '../../Services/examServices';
 import { questionServices } from '../../Services/questionServices';
+import { syllabusServices } from '../../Services/syllabusServices';
 import { assessmentPortalServices } from '../../Services/assessmentPortalServices';
 import type { Exam } from '../../Models/examModel';
 import type { QuestionSet } from '../../Models/questionModel';
+import type { Syllabus } from '../../Models/syllabusModel';
 import type { MyExamDto, ExamPaperResponse, AssignStudentsDto, SavedAnswerResponseDto, SaveAnswerDto, UserDto, UserFilter } from '../../Models/assessmentPortalModel';
+
+import '../../Styles/AssessmentPortal.css';
 
 export const AssessmentPortal: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'student' | 'faculty'>('student');
@@ -25,15 +29,13 @@ export const AssessmentPortal: React.FC = () => {
   const [selectedExamId, setSelectedExamId] = useState<number | ''>('');
   const [sets, setSets] = useState<QuestionSet[]>([]);
   const [selectedSetId, setSelectedSetId] = useState<number | ''>('');
+  const [syllabusList, setSyllabusList] = useState<Syllabus[]>([]);
+  const [selectedSyllabusId, setSelectedSyllabusId] = useState<number | ''>('');
   const [examType, setExamType] = useState<number>(1); // 1: Online, 2: Offline
   
   const [usersList, setUsersList] = useState<UserDto[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [userFilter, setUserFilter] = useState<UserFilter>({ search: '', pageNumber: 1, pageSize: 10 });
-  
-  // Dropdown UI Toggle State
-  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchMyExams = async () => {
     try {
@@ -73,30 +75,32 @@ export const AssessmentPortal: React.FC = () => {
     fetchFilteredUsers();
   }, [userFilter]);
 
-  // Handle outside click to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+  // Fetch Question Sets and Syllabus when Selected Exam changes
   useEffect(() => {
     if (selectedExamId === '') return;
-    const fetchSets = async () => {
+    
+    const fetchExamData = async () => {
       try {
-        const data = await questionServices.getSetsByExam(Number(selectedExamId));
-        setSets(data);
-        if (data.length > 0) setSelectedSetId(data[0].id);
+        const setsData = await questionServices.getSetsByExam(Number(selectedExamId));
+        setSets(setsData);
+        if (setsData.length > 0) setSelectedSetId(setsData[0].id);
         else setSelectedSetId('');
       } catch (err) {
         setError('Failed to fetch question sets.');
       }
+
+      try {
+        const syllabusData = await syllabusServices.getSyllabusByExamId(Number(selectedExamId));
+        setSyllabusList(syllabusData);
+        if (syllabusData.length > 0) setSelectedSyllabusId(syllabusData[0].id);
+        else setSelectedSyllabusId('');
+      } catch (err) {
+        setSyllabusList([]);
+        setSelectedSyllabusId('');
+      }
     };
-    fetchSets();
+
+    fetchExamData();
   }, [selectedExamId]);
 
   const handleRespond = async (participantId: number, accept: boolean) => {
@@ -195,6 +199,15 @@ export const AssessmentPortal: React.FC = () => {
     );
   };
 
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allIds = usersList.map(u => u.id);
+      setSelectedUserIds(allIds);
+    } else {
+      setSelectedUserIds([]);
+    }
+  };
+
   const handleAssignStudents = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSetId) {
@@ -203,7 +216,7 @@ export const AssessmentPortal: React.FC = () => {
     }
 
     if (selectedUserIds.length === 0) {
-      alert('Please select at least one student from the dropdown list.');
+      alert('Please select at least one student from the table.');
       return;
     }
 
@@ -235,59 +248,83 @@ export const AssessmentPortal: React.FC = () => {
     }
   };
 
+  const getStatusClass = (status: number) => {
+    switch (status) {
+      case 2: return 'ap-badge--accepted';
+      case 3: return 'ap-badge--progress';
+      case 4: return 'ap-badge--completed';
+      case 5: return 'ap-badge--declined';
+      default: return 'ap-badge--invited';
+    }
+  };
+
+  // Helper labels for table display
+  const currentExamName = exams.find(e => e.id === Number(selectedExamId))?.name || 'Selected Exam';
+  const currentSetName = sets.find(s => s.id === Number(selectedSetId))?.name || 'Selected Set';
+  const currentSyllabusName = syllabusList.find(s => s.id === Number(selectedSyllabusId))?.topicName || 'Selected Syllabus';
+  const currentExamTypeName = examType === 1 ? 'Online' : 'Offline';
+
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+    <div className="ap-page">
       <h2>Exam Assessment & Participant Portal</h2>
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+      {/* Sub-Tabs Selector */}
+      <div className="ap-subtabs">
         <button 
           onClick={() => setActiveTab('student')} 
-          style={{ padding: '8px 16px', background: activeTab === 'student' ? '#007bff' : '#e2e8f0', color: activeTab === 'student' ? '#fff' : '#000', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>
+          className={`ap-tab-btn ${activeTab === 'student' ? 'active' : ''}`}>
           My Student Exams & Answering Portal
         </button>
         <button 
           onClick={() => setActiveTab('faculty')} 
-          style={{ padding: '8px 16px', background: activeTab === 'faculty' ? '#007bff' : '#e2e8f0', color: activeTab === 'faculty' ? '#fff' : '#000', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>
+          className={`ap-tab-btn ${activeTab === 'faculty' ? 'active' : ''}`}>
           Faculty: Assign Students
         </button>
       </div>
 
-      {message && <p style={{ color: 'green', fontWeight: 'bold' }}>{message}</p>}
-      {error && <p style={{ color: 'red', fontWeight: 'bold' }}>{error}</p>}
+      {message && <p className="ap-success">{message}</p>}
+      {error && <p className="ap-error">{error}</p>}
 
       {activeTab === 'student' && (
         <div>
           <h3>My Assigned Exams</h3>
-          {loading && <p>Loading exams...</p>}
-          {!loading && myExams.length === 0 && <p>No exam invitations found.</p>}
+          {loading && <p className="ap-info">Loading exams...</p>}
+          {!loading && myExams.length === 0 && <p className="ap-info">No exam invitations found.</p>}
 
-          <ul style={{ listStyle: 'none', padding: 0 }}>
+          <ul className="ap-list">
             {myExams.map(exam => (
-              <li key={exam.participantId} style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '15px', borderRadius: '5px', background: '#f9f9f9' }}>
-                <h4>{exam.examName} - <span style={{ color: '#007bff' }}>{exam.setName}</span></h4>
-                <p><strong>Status:</strong> {getStatusName(exam.participantStatus)}</p>
-                <p><small>Starts: {new Date(exam.startDate).toLocaleString()} | Ends: {new Date(exam.endDate).toLocaleString()}</small></p>
+              <li key={exam.participantId} className="ap-card ap-exam-card">
+                <div className="ap-exam-header">
+                  <h4>{exam.examName} - <span className="ap-set-title">{exam.setName}</span></h4>
+                  <span className={`ap-badge ${getStatusClass(exam.participantStatus)}`}>
+                    {getStatusName(exam.participantStatus)}
+                  </span>
+                </div>
+                
+                <p className="ap-meta-text">
+                  Starts: {new Date(exam.startDate).toLocaleString()} | Ends: {new Date(exam.endDate).toLocaleString()}
+                </p>
 
-                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <div className="ap-action-row">
                   {exam.participantStatus === 1 && (
                     <>
-                      <button onClick={() => handleRespond(exam.participantId, true)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '6px 12px', cursor: 'pointer', borderRadius: '4px' }}>
+                      <button onClick={() => handleRespond(exam.participantId, true)} className="ap-btn ap-btn--success">
                         Accept Invitation
                       </button>
-                      <button onClick={() => handleRespond(exam.participantId, false)} style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '6px 12px', cursor: 'pointer', borderRadius: '4px' }}>
+                      <button onClick={() => handleRespond(exam.participantId, false)} className="ap-btn ap-btn--danger">
                         Decline
                       </button>
                     </>
                   )}
 
                   {exam.participantStatus === 2 && (
-                    <button onClick={() => handleStartExam(exam.participantId)} style={{ background: '#ffc107', color: '#000', border: 'none', padding: '6px 12px', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold' }}>
+                    <button onClick={() => handleStartExam(exam.participantId)} className="ap-btn ap-btn--primary">
                       Start Exam
                     </button>
                   )}
 
                   {exam.participantStatus === 3 && (
-                    <button onClick={() => handleOpenExamPaper(exam.participantId)} style={{ background: '#17a2b8', color: '#fff', border: 'none', padding: '6px 12px', cursor: 'pointer', borderRadius: '4px' }}>
+                    <button onClick={() => handleOpenExamPaper(exam.participantId)} className="ap-btn ap-btn--info">
                       Open Exam & Answer Portal
                     </button>
                   )}
@@ -297,26 +334,32 @@ export const AssessmentPortal: React.FC = () => {
           </ul>
 
           {activeExamPaper && activeParticipantId && (
-            <div style={{ marginTop: '30px', border: '2px solid #007bff', padding: '20px', borderRadius: '8px', background: '#fff' }}>
-              <h3>Active Examination Workspace (Participant ID: {activeParticipantId})</h3>
-              <p><strong>Total Questions:</strong> {activeExamPaper.totalQuestions}</p>
-              <hr />
+            <div className="ap-card ap-workspace">
+              <div className="ap-workspace-header">
+                <h3>Active Examination Workspace <small>(Participant ID: {activeParticipantId})</small></h3>
+                <span className="ap-total-questions">Total Questions: {activeExamPaper.totalQuestions}</span>
+              </div>
+              <hr className="ap-divider" />
+              
               {activeExamPaper.questions.map((q, idx) => (
-                <div key={q.id} style={{ marginBottom: '25px', borderBottom: '1px solid #ddd', paddingBottom: '15px' }}>
-                  <p><strong>Q{idx + 1}: {q.title}</strong> ({q.marks} Marks)</p>
-                  {q.description && <p>{q.description}</p>}
+                <div key={q.id} className="ap-question-block">
+                  <p className="ap-question-title">
+                    <strong>Q{idx + 1}: {q.title}</strong> <span className="ap-marks">({q.marks} Marks)</span>
+                  </p>
+                  {q.description && <p className="ap-question-desc">{q.description}</p>}
 
                   {q.options && q.options.length > 0 ? (
-                    <ul style={{ listStyleType: 'none', padding: 0 }}>
+                    <ul className="ap-options-list">
                       {q.options.map(opt => (
-                        <li key={opt.id} style={{ marginBottom: '5px' }}>
-                          <label>
+                        <li key={opt.id}>
+                          <label className="ap-radio-label">
                             <input 
                               type="radio" 
                               name={`question_${q.id}`} 
                               checked={answersMap[q.id]?.optionId === opt.id}
                               onChange={() => handleAnswerChange(q.id, opt.id)} 
-                            /> {opt.title}
+                            /> 
+                            <span>{opt.title}</span>
                           </label>
                         </li>
                       ))}
@@ -327,22 +370,22 @@ export const AssessmentPortal: React.FC = () => {
                       placeholder="Type your answer here..."
                       value={answersMap[q.id]?.description || ''}
                       onChange={e => handleAnswerChange(q.id, undefined, e.target.value)}
-                      style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+                      className="ap-textarea"
                     />
                   )}
 
                   <button 
                     onClick={() => handleSaveSingleAnswer(q.id)}
-                    style={{ marginTop: '8px', padding: '6px 12px', background: '#28a745', color: '#fff', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>
+                    className="ap-btn ap-btn--success" style={{ marginTop: '10px' }}>
                     Save Answer
                   </button>
                 </div>
               ))}
 
-              <div style={{ marginTop: '20px', textAlign: 'right' }}>
+              <div style={{ marginTop: '24px', textAlign: 'right' }}>
                 <button 
                   onClick={handleSubmitFinalExam}
-                  style={{ padding: '12px 20px', background: '#dc3545', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer', borderRadius: '5px' }}>
+                  className="ap-btn ap-btn--danger" style={{ padding: '12px 24px', fontSize: '1.05rem' }}>
                   Submit & Finalize Exam Session
                 </button>
               </div>
@@ -352,106 +395,130 @@ export const AssessmentPortal: React.FC = () => {
       )}
 
       {activeTab === 'faculty' && (
-        <div style={{ border: '1px solid #ccc', padding: '20px', borderRadius: '5px', background: '#fff' }}>
-          <h3>Assign Students to Question Set</h3>
-          <form onSubmit={handleAssignStudents} style={{ display: 'grid', gap: '15px' }}>
-            <div>
-              <label><strong>Select Exam:</strong></label>
-              <select value={selectedExamId} onChange={e => setSelectedExamId(Number(e.target.value))} style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
-                {exams.map(ex => (
-                  <option key={ex.id} value={ex.id}>{ex.name}</option>
-                ))}
-              </select>
+        <form onSubmit={handleAssignStudents}>
+          {/* SECTION 1: Exam Configuration */}
+          <div className="ap-card ap-config-section">
+            <h3>Exam Configuration</h3>
+            <div className="ap-config-grid">
+              <div className="ap-config-field">
+                <label>Exam Name:</label>
+                <select value={selectedExamId} onChange={e => setSelectedExamId(Number(e.target.value))}>
+                  {exams.map(ex => (
+                    <option key={ex.id} value={ex.id}>{ex.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="ap-config-field">
+                <label>Question Set:</label>
+                <select value={selectedSetId} onChange={e => setSelectedSetId(Number(e.target.value))}>
+                  {sets.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="ap-config-field">
+                <label>Syllabus:</label>
+                <select value={selectedSyllabusId} onChange={e => setSelectedSyllabusId(Number(e.target.value))}>
+                  {syllabusList.map(s => (
+                    <option key={s.id} value={s.id}>{s.topicName}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="ap-config-field">
+                <label>Exam Type:</label>
+                <select value={examType} onChange={e => setExamType(Number(e.target.value))}>
+                  <option value={1}>Online</option>
+                  <option value={2}>Offline</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: Select Students Table */}
+          <div className="ap-card ap-table-section">
+            <div className="ap-table-header-row">
+              <h3>Select Students</h3>
+              <div className="ap-search-wrapper">
+                <input 
+                  type="text" 
+                  value={userFilter.search || ''} 
+                  onChange={e => setUserFilter({ ...userFilter, search: e.target.value, pageNumber: 1 })} 
+                  placeholder="Search students by name or ID..." 
+                  className="ap-search-input"
+                />
+              </div>
             </div>
 
-            <div>
-              <label><strong>Select Question Set:</strong></label>
-              <select value={selectedSetId} onChange={e => setSelectedSetId(Number(e.target.value))} style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
-                {sets.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label><strong>Exam Type:</strong></label>
-              <select value={examType} onChange={e => setExamType(Number(e.target.value))} style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
-                <option value={1}>Online</option>
-                <option value={2}>Offline</option>
-              </select>
-            </div>
-
-            {/* Search Students with Dropdown Container */}
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
-              <label><strong>Search & Select Students:</strong></label>
-              <input 
-                type="text" 
-                value={userFilter.search || ''} 
-                onClick={() => setIsDropdownOpen(true)}
-                onChange={e => {
-                  setUserFilter({ ...userFilter, search: e.target.value, pageNumber: 1 });
-                  setIsDropdownOpen(true);
-                }} 
-                placeholder="Click or type to search students..." 
-                style={{ width: '100%', padding: '8px', marginTop: '5px', boxSizing: 'border-box' }} 
-              />
-              <small style={{ color: '#666' }}>Selected Students Count: {selectedUserIds.length}</small>
-
-              {/* Dropdown List Container */}
-              {isDropdownOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  background: '#fff',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  zIndex: 1000,
-                  marginTop: '4px',
-                  padding: '8px'
-                }}>
+            <div className="ap-table-container">
+              <table className="ap-student-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '40px' }}>
+                      <input 
+                        type="checkbox" 
+                        onChange={handleSelectAll}
+                        checked={usersList.length > 0 && selectedUserIds.length === usersList.length}
+                      />
+                    </th>
+                    <th>Student</th>
+                    <th>Exam Name</th>
+                    <th>Question Set</th>
+                    <th>Syllabus</th>
+                    <th>Exam Type</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {usersList.length === 0 ? (
-                    <p style={{ color: '#666', fontStyle: 'italic', padding: '5px', margin: 0 }}>No users found.</p>
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '20px', color: '#6b6252', fontStyle: 'italic' }}>
+                        No students found.
+                      </td>
+                    </tr>
                   ) : (
-                    usersList.map(user => (
-                      <div 
-                        key={user.id} 
-                        onClick={() => toggleUserSelection(user.id)}
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '10px', 
-                          padding: '6px 8px', 
-                          cursor: 'pointer',
-                          borderRadius: '3px',
-                          background: selectedUserIds.includes(user.id) ? '#e6f2ff' : 'transparent'
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')}
-                        onMouseLeave={e => (e.currentTarget.style.background = selectedUserIds.includes(user.id) ? '#e6f2ff' : 'transparent')}
-                      >
-                        <input 
-                          type="checkbox" 
-                          checked={selectedUserIds.includes(user.id)}
-                          onChange={() => {}} // Handled by parent div click
-                          style={{ cursor: 'pointer' }}
-                        />
-                        <span>{user.firstName} {user.lastName} (@{user.userName})</span>
-                      </div>
-                    ))
+                    usersList.map(user => {
+                      const isChecked = selectedUserIds.includes(user.id);
+                      return (
+                        <tr key={user.id} className={isChecked ? 'selected-row' : ''} onClick={() => toggleUserSelection(user.id)} style={{ cursor: 'pointer' }}>
+                          <td onClick={e => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked}
+                              onChange={() => toggleUserSelection(user.id)}
+                            />
+                          </td>
+                          <td>
+                            <div className="ap-student-info">
+                              <strong>{user.firstName} {user.lastName}</strong>
+                              <small>@{user.userName} (ID: {user.id})</small>
+                            </div>
+                          </td>
+                          <td>{currentExamName}</td>
+                          <td>{currentSetName}</td>
+                          <td>{currentSyllabusName}</td>
+                          <td>
+                            <span className="ap-type-badge">{currentExamTypeName}</span>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
-                </div>
-              )}
+                </tbody>
+              </table>
             </div>
 
-            <button type="submit" style={{ padding: '10px', background: '#28a745', color: '#fff', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>
-              Assign & Invite Selected Students
-            </button>
-          </form>
-        </div>
+            <div className="ap-table-footer">
+              <span>Selected Students Count: <strong>{selectedUserIds.length}</strong></span>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <button type="submit" className="ap-btn ap-btn--success ap-assign-btn">
+            Assign & Invite Selected Students
+          </button>
+        </form>
       )}
     </div>
   );
