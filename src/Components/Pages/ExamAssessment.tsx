@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { assessmentPortalServices } from '../../Services/assessmentPortalServices';
 import type { MyExamDto, ExamPaperResponse, SavedAnswerResponseDto, SaveAnswerDto } from '../../Models/assessmentPortalModel';
-import '../../Styles/AssessmentPortal.css';
+import '../../Styles/ExamAssessment.css';
 
 export const ExamAssessment: React.FC = () => {
   const navigate = useNavigate();
@@ -21,7 +21,15 @@ export const ExamAssessment: React.FC = () => {
       setLoading(true);
       setError(null);
       const data = await assessmentPortalServices.getMyExams();
-      setMyExams(data);
+      
+      // Feature 1: Sort assigned exams by newest first (descending order by start/end date)
+      const sortedData = data.sort((a, b) => {
+        const timeA = new Date(a.startDate || a.endDate || 0).getTime();
+        const timeB = new Date(b.startDate || b.endDate || 0).getTime();
+        return timeB - timeA;
+      });
+
+      setMyExams(sortedData);
     } catch (err: any) {
       setError(err?.response?.data || 'Failed to fetch assigned exams.');
     } finally {
@@ -44,7 +52,18 @@ export const ExamAssessment: React.FC = () => {
     }
   };
 
+  // Feature 3: Check if exam end time has passed current time
+  const isExamExpired = (exam: MyExamDto) => {
+    if (!exam.endDate) return false;
+    return new Date().getTime() > new Date(exam.endDate).getTime();
+  };
+
   const handleStartExam = async (participantId: number) => {
+    const exam = myExams.find(e => e.participantId === participantId);
+    if (exam && isExamExpired(exam)) {
+      setError('This exam has expired and can no longer be accessed.');
+      return;
+    }
     try {
       setError(null);
       const res = await assessmentPortalServices.startExam(participantId);
@@ -56,11 +75,19 @@ export const ExamAssessment: React.FC = () => {
   };
 
   const handleOpenExamPaper = (participantId: number) => {
+    const exam = myExams.find(e => e.participantId === participantId);
+    if (exam && isExamExpired(exam)) {
+      setError('This exam has expired and can no longer be accessed.');
+      return;
+    }
     navigate(`/exam-hall/${participantId}`);
   };
 
-  const getStatusName = (status: number) => {
-    switch (status) {
+  const getStatusName = (exam: MyExamDto) => {
+    if (isExamExpired(exam) && exam.participantStatus !== 4) {
+      return 'Expired';
+    }
+    switch (exam.participantStatus) {
       case 1: return 'Invited';
       case 2: return 'Accepted';
       case 3: return 'In-Progress (Attended)';
@@ -71,8 +98,11 @@ export const ExamAssessment: React.FC = () => {
     }
   };
 
-  const getStatusClass = (status: number) => {
-    switch (status) {
+  const getStatusClass = (exam: MyExamDto) => {
+    if (isExamExpired(exam) && exam.participantStatus !== 4) {
+      return 'ap-badge--expired';
+    }
+    switch (exam.participantStatus) {
       case 2: return 'ap-badge--accepted';
       case 3: return 'ap-badge--progress';
       case 4: return 'ap-badge--completed';
@@ -94,45 +124,58 @@ export const ExamAssessment: React.FC = () => {
         {!loading && myExams.length === 0 && <p className="ap-info">No exam invitations found.</p>}
 
         <ul className="ap-list">
-          {myExams.map(exam => (
-            <li key={exam.participantId} className="ap-card ap-exam-card">
-              <div className="ap-exam-header">
-                <h4>{exam.examName} - <span className="ap-set-title">{exam.setName}</span></h4>
-                <span className={`ap-badge ${getStatusClass(exam.participantStatus)}`}>
-                  {getStatusName(exam.participantStatus)}
-                </span>
-              </div>
-              
-              <p className="ap-meta-text">
-                Starts: {new Date(exam.startDate).toLocaleString()} | Ends: {new Date(exam.endDate).toLocaleString()}
-              </p>
+          {myExams.map(exam => {
+            const expired = isExamExpired(exam);
+            // Feature 2: Extract syllabus name from available backend properties
+            const syllabusLabel = (exam as any).syllabusName || (exam as any).syllabus?.topicName || (exam as any).syllabusTitle || 'Syllabus Assigned';
 
-              <div className="ap-action-row">
-                {exam.participantStatus === 1 && (
-                  <>
-                    <button onClick={() => handleRespond(exam.participantId, true)} className="ap-btn ap-btn--success">
-                      Accept Invitation
+            return (
+              <li key={exam.participantId} className="ap-card ap-exam-card">
+                <div className="ap-exam-header">
+                  <h4>{exam.examName} - <span className="ap-set-title">{exam.setName}</span></h4>
+                  <span className={`ap-badge ${getStatusClass(exam)}`}>
+                    {getStatusName(exam)}
+                  </span>
+                </div>
+                
+                <p className="ap-meta-text">
+                  <strong>Syllabus:</strong> {syllabusLabel} <br />
+                  Starts: {new Date(exam.startDate).toLocaleString()} | Ends: {new Date(exam.endDate).toLocaleString()}
+                </p>
+
+                <div className="ap-action-row">
+                  {!expired && exam.participantStatus === 1 && (
+                    <>
+                      <button onClick={() => handleRespond(exam.participantId, true)} className="ap-btn ap-btn--success">
+                        Accept Invitation
+                      </button>
+                      <button onClick={() => handleRespond(exam.participantId, false)} className="ap-btn ap-btn--danger">
+                        Decline
+                      </button>
+                    </>
+                  )}
+
+                  {!expired && exam.participantStatus === 2 && (
+                    <button onClick={() => handleStartExam(exam.participantId)} className="ap-btn ap-btn--primary">
+                      Start Exam
                     </button>
-                    <button onClick={() => handleRespond(exam.participantId, false)} className="ap-btn ap-btn--danger">
-                      Decline
+                  )}
+
+                  {!expired && exam.participantStatus === 3 && (
+                    <button onClick={() => handleOpenExamPaper(exam.participantId)} className="ap-btn ap-btn--info">
+                      Open Exam & Answer Portal
                     </button>
-                  </>
-                )}
+                  )}
 
-                {exam.participantStatus === 2 && (
-                  <button onClick={() => handleStartExam(exam.participantId)} className="ap-btn ap-btn--primary">
-                    Start Exam
-                  </button>
-                )}
-
-                {exam.participantStatus === 3 && (
-                  <button onClick={() => handleOpenExamPaper(exam.participantId)} className="ap-btn ap-btn--info">
-                    Open Exam & Answer Portal
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
+                  {expired && exam.participantStatus !== 4 && (
+                    <span className="ap-meta-text" style={{ fontStyle: 'italic', color: '#b91c1c', fontWeight: 600 }}>
+                      Exam session expired. Entry is closed.
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

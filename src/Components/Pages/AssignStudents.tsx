@@ -7,7 +7,7 @@ import type { Exam } from '../../Models/examModel';
 import type { QuestionSet } from '../../Models/questionModel';
 import type { Syllabus } from '../../Models/syllabusModel';
 import type { AssignStudentsDto, UserDto, UserFilter } from '../../Models/assessmentPortalModel';
-import '../../Styles/AssessmentPortal.css';
+import '../../Styles/AssignStudents.css';
 
 export const AssignStudents: React.FC = () => {
   const [exams, setExams] = useState<Exam[]>([]);

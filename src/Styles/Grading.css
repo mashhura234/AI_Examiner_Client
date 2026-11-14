@@ -1,0 +1,68 @@
+/* Grading Portal Layout & Glassmorphism */
+.grading-page-container {
+    margin-left: 250px; /* Matches sidebar offset */
+    padding: 30px;
+    min-height: 100vh;
+    box-sizing: border-box;
+    background-color: transparent;
+    color: #ffffff;
+}
+
+@media (max-width: 768px) {
+    .grading-page-container {
+        margin-left: 0;
+        padding: 15px;
+    }
+}
+
+.grading-card {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+    color: #ffffff;
+}
+
+.grading-input,
+.grading-page-container input.form-control {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+    border-radius: 8px;
+}
+
+.grading-page-container input.form-control:focus {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: #ffffff !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.grading-page-container input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.grading-list-item {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #ffffff !important;
+    transition: all 0.2s ease;
+}
+
+.grading-list-item:hover {
+    background: rgba(255, 255, 255, 0.18) !important;
+}
+
+.grading-list-item.active {
+    background: rgba(13, 110, 253, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.grading-response-box {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 12px;
+}

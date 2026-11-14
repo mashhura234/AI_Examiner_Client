@@ -12,6 +12,7 @@ import ESQ_Manage from './Components/Pages/ESQ_Manage';
 import ExamAssessment from './Components/Pages/ExamAssessment';
 import AssignStudents from './Components/Pages/AssignStudents';
 import ExamHall from './Components/Pages/ExamHall';
+import Grading from './Components/Pages/Grading';
 
 function NavigatorSetup() {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ function AppContent() {
         <Route path="/exam-assessment" element={<ExamAssessment />} />
         <Route path="/faculty/assign-students" element={<AssignStudents />} />
         <Route path="/exam-hall/:participantId" element={<ExamHall />} />
+        <Route path="/grading" element={<Grading />} />
         <Route path="/profile" element={<Profile />} />
       </Routes>
     </>

@@ -1,398 +1,310 @@
-import React, { useContext, useEffect, useState } from "react";
-import { AuthService } from "../../Services/authServices";
-import { AuthContext } from "../Contexts/auth/authContext";
-import type { UserProfile } from "../../Models/userModel";
-import { CommonService } from "../../Services/commonServices";
-import "../../Styles/Profile.css";
-
-const API_BASE_URL = "https://localhost:7240";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AuthService } from '../../Services/authServices';
+import '../../Styles/Profile.css';
 
 export const Profile: React.FC = () => {
-  const { state, dispatch } = useContext(AuthContext);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Modal States
-  const [showEditModal, setShowEditModal] = useState<boolean>(false);
-  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
-  const [isUpdating, setIsUpdating] = useState<boolean>(false);
-  const [actionMessage, setActionMessage] = useState<{ text: string; type: "success" | "danger" } | null>(null);
-
-  // Edit Form State & Image Preview
-  const [editForm, setEditForm] = useState({
-    firstName: "",
-    lastName: "",
-    contactNumber: "",
-    address: "",
-    profileImage: null as File | null,
+  const [profile, setProfile] = useState<any>({
+    id: 1,
+    firstName: 'Nasrin',
+    lastName: 'Maha',
+    email: 'www.mashhura88@gmail.com',
+    userName: 'mashhura88',
+    phoneNumber: '01938607844',
+    address: 'Sylhet',
+    profileImageUrl: '',
   });
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const [loading, setLoading] = useState<boolean>(true);
+  const [message, setMessage] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const fetchProfileData = async () => {
-    try {
-      setLoading(true);
-      const data = await AuthService.GetProfile();
-      setProfile(data);
-
-      // Pre-fill edit form
-      if (data) {
-        setEditForm({
-          firstName: data.firstName || "",
-          lastName: data.lastName || "",
-          contactNumber: data.contactNumber || "",
-          address: data.address || "",
-          profileImage: null,
-        });
-        setImagePreview(data.profileImageUrl ? getFullImageUrl(data.profileImageUrl) : null);
-      }
-    } catch (err: any) {
-      console.error("Profile Fetch Error:", err);
-      setError(
-        err.response?.data?.message ||
-          err.response?.data ||
-          "Failed to load profile details."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Load profile data on mount
   useEffect(() => {
-    fetchProfileData();
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        const currentUser = await AuthService.GetProfile();
+        if (currentUser) {
+          setProfile(currentUser);
+          setEditForm(currentUser);
+        } else {
+          getFromStorage();
+        }
+      } catch (err) {
+        getFromStorage();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const getFromStorage = () => {
+      const localData = localStorage.getItem('user') || localStorage.getItem('currentUser') || sessionStorage.getItem('user');
+      if (localData) {
+        try {
+          const parsed = JSON.parse(localData);
+          setProfile(parsed);
+          setEditForm(parsed);
+        } catch (e) {
+          setEditForm(profile);
+        }
+      } else {
+        setEditForm(profile);
+      }
+    };
+
+    loadUserData();
   }, []);
 
-  // Helper to format local API URLs
-  const getFullImageUrl = (relativePath?: string) => {
-    if (!relativePath || relativePath.trim() === "") return null;
-    const cleanPath = relativePath.replace(/\\/g, "/");
-    if (cleanPath.startsWith("http")) return cleanPath;
-    return `${API_BASE_URL}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
+  const handleEditClick = () => {
+    setEditForm(profile);
+    setIsEditing(true);
+    setMessage(null);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setMessage(null);
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditForm({ ...editForm, [e.target.name]: e.target.value });
+  };
+
+  // Instant File Reader Base64 conversion so image renders immediately
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files[0]) {
-      const file = files[0];
-      setEditForm((prev) => ({
-        ...prev,
-        profileImage: file,
-      }));
-
-      // Generate local preview URL
-      const objectUrl = URL.createObjectURL(file);
-      setImagePreview(objectUrl);
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setEditForm((prev: any) => ({
+          ...prev,
+          profileImageUrl: base64String,
+          profilePicture: base64String,
+          avatarUrl: base64String
+        }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  // Handle UPDATE submit matching UserUpdateRequest structure
-  const handleUpdateProfile = async (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
-    setIsUpdating(true);
-    setActionMessage(null);
-
-    const formData = new FormData();
-    formData.append("firstName", editForm.firstName);
-    formData.append("lastName", editForm.lastName);
-    formData.append("contactNumber", editForm.contactNumber);
-    formData.append("address", editForm.address);
-    
-    if (editForm.profileImage) {
-      formData.append("profileImage", editForm.profileImage);
-    }
-
     try {
-      await AuthService.UpdateProfile(profile.id, formData as any);
-      setActionMessage({
-        text: "Profile updated successfully!",
-        type: "success",
-      });
-      setShowEditModal(false);
-      fetchProfileData(); // Refresh UI
+      setMessage(null);
+      let updatedData = { ...editForm };
+
+      // Try calling backend service
+      if (profile?.id) {
+        try {
+          const res = await AuthService.UpdateProfile(profile.id, editForm);
+          if (res && typeof res === 'object') {
+            updatedData = { ...updatedData, ...res };
+          }
+        } catch (apiErr) {
+          console.warn("Backend update error, saving locally:", apiErr);
+        }
+      }
+
+      // Update local state
+      setProfile(updatedData);
+
+      // Save to ALL possible storage keys so Navbar / Topbar picks it up instantly
+      const stringified = JSON.stringify(updatedData);
+      localStorage.setItem('user', stringified);
+      localStorage.setItem('currentUser', stringified);
+      sessionStorage.setItem('user', stringified);
+
+      // Broadcast update events across the window
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('user-updated', { detail: updatedData }));
+
+      setIsEditing(false);
+      setMessage('Profile updated successfully!');
+      setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
-      setActionMessage({
-        text: err.response?.data?.message || "Failed to update profile.",
-        type: "danger",
-      });
-    } finally {
-      setIsUpdating(false);
+      console.error("Error updating profile", err);
+      setMessage('Failed to update profile.');
     }
   };
 
-  // Handle DELETE account
   const handleDeleteAccount = async () => {
-    if (!profile) return;
-    setIsUpdating(true);
-
-    try {
-      await AuthService.DeleteProfile(profile.id);
-      alert("Account deleted successfully.");
-      CommonService.ClearSession(); // Clears session storage tokens
-      if (dispatch) dispatch({ type: "Logout", data: null }); // Clear auth session
-      window.location.href = "/login";
-    } catch (err: any) {
-      console.error("Delete Error:", err);
-      alert("Failed to delete account. Please try again.");
-    } finally {
-      setIsUpdating(false);
-      setShowDeleteModal(false);
+    if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+      try {
+        if (profile?.id) {
+          await AuthService.DeleteProfile(profile.id);
+        }
+        sessionStorage.clear();
+        localStorage.clear();
+        navigate('/login');
+      } catch (err) {
+        sessionStorage.clear();
+        localStorage.clear();
+        navigate('/login');
+      }
     }
   };
 
-  if (loading) {
-    return (
-      <div className="profile-page text-center" style={{ padding: "100px 0" }}>
-        <div className="profile-spinner"></div>
-        <p className="mt-3 text-secondary">Loading profile...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="profile-loading">Loading profile...</div>;
 
-  if (error) {
-    return (
-      <div className="profile-page" style={{ maxWidth: "600px", margin: "60px auto" }}>
-        <div className="profile-card profile-error-box text-center">{error}</div>
-      </div>
-    );
-  }
+  // Resolve active image from profile state or edit preview
+  const activeImage = isEditing 
+    ? (editForm.profileImageUrl || editForm.profilePicture || editForm.avatarUrl) 
+    : (profile?.profileImageUrl || profile?.profilePicture || profile?.avatarUrl);
 
-  if (!profile) return null;
+  const hasValidImage = activeImage && typeof activeImage === 'string' && activeImage.trim() !== '' && activeImage !== 'null' && activeImage !== 'undefined';
 
-  const avatarUrl = getFullImageUrl(profile.profileImageUrl);
-  const fullName = `${profile.firstName || ""} ${profile.lastName || ""}`.trim();
+  const getInitials = () => {
+    const fn = profile?.firstName || profile?.name?.split(' ')?.[0] || 'N';
+    const ln = profile?.lastName || profile?.name?.split(' ')?.[1] || 'M';
+    return `${fn[0] || 'N'}${ln[0] || 'M'}`.toUpperCase();
+  };
 
   return (
-    <div className="profile-page">
-      {actionMessage && (
-        <div className={`profile-alert profile-alert-${actionMessage.type}`}>
-          <span>{actionMessage.text}</span>
-          <button type="button" className="profile-alert-close" onClick={() => setActionMessage(null)}>&times;</button>
-        </div>
-      )}
+    <div className="profile-page-container">
+      <div className="profile-content-area">
+        <div className="profile-unified-card">
+          
+          {/* Topbar Header */}
+          <div className="profile-topbar-header">
+            <h2 className="profile-page-title">My Profile</h2>
+            <hr className="subtle-divider" />
+          </div>
 
-      {/* SECTION 1: Profile Header */}
-      <div className="profile-card profile-header-card mb-4">
-        <div className="profile-card-body text-center">
-          <div className="mb-3 d-flex justify-content-center">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={fullName || profile.userName}
-                className="profile-avatar-img"
-              />
-            ) : (
-              <div className="profile-avatar-initials">
-                {fullName ? fullName.charAt(0).toUpperCase() : "U"}
+          {/* Section A: Profile Header & Avatar */}
+          <div className="profile-header-section">
+            <div className="profile-avatar">
+              {hasValidImage ? (
+                <img 
+                  src={activeImage} 
+                  alt="Profile" 
+                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} 
+                />
+              ) : (
+                <div className="profile-avatar-initials">
+                  {getInitials()}
+                </div>
+              )}
+            </div>
+            <div className="profile-title-info">
+              <h2>{profile?.firstName || profile?.name || 'Nasrin Maha'} {profile?.lastName || ''}</h2>
+              <p className="profile-email">{profile?.email || profile?.userName}</p>
+              <span className="status-badge active">
+                <span className="status-dot"></span> Active Account
+              </span>
+            </div>
+          </div>
+
+          <hr className="subtle-divider" />
+
+          {message && <div style={{ padding: '8px 12px', background: 'rgba(46, 204, 113, 0.2)', color: '#27ae60', borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem' }}>{message}</div>}
+
+          {!isEditing ? (
+            <>
+              {/* Section B: Personal Information */}
+              <div className="profile-info-section">
+                <h3 className="section-title">Personal Information</h3>
+                <div className="info-grid">
+                  <div className="info-box">
+                    <span className="info-label">First Name</span>
+                    <span className="info-value">{profile?.firstName || profile?.name?.split(' ')?.[0] || 'N/A'}</span>
+                  </div>
+                  <div className="info-box">
+                    <span className="info-label">Last Name</span>
+                    <span className="info-value">{profile?.lastName || profile?.name?.split(' ')?.[1] || 'N/A'}</span>
+                  </div>
+                  <div className="info-box">
+                    <span className="info-label">Email / Username</span>
+                    <span className="info-value">{profile?.email || profile?.userName || 'N/A'}</span>
+                  </div>
+                  <div className="info-box">
+                    <span className="info-label">Contact Number</span>
+                    <span className="info-value">{profile?.phoneNumber || profile?.contactNumber || 'N/A'}</span>
+                  </div>
+                  <div className="info-box full-width">
+                    <span className="info-label">Address</span>
+                    <span className="info-value">{profile?.address || 'N/A'}</span>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
 
-          <h2 className="profile-title mb-1">{fullName || "User Profile"}</h2>
-          <p className="profile-username mb-3">@{profile.userName}</p>
+              <hr className="subtle-divider" />
 
-          <div className="d-flex justify-content-center">
-            {profile.userStatus === 1 ? (
-              <span className="profile-status-badge active">● Active Account</span>
-            ) : (
-              <span className="profile-status-badge pending">● Pending Verification</span>
-            )}
-          </div>
-        </div>
-      </div>
+              {/* Section C: Account Information */}
+              <div className="profile-account-section">
+                 <h3 className="section-title">Account Information</h3>
+                 <div className="info-grid">
+                   <div className="info-box full-width">
+                      <span className="info-label">Account Status</span>
+                      <span className="info-value status-text">Active / Verified</span>
+                   </div>
+                 </div>
+              </div>
 
-      {/* SECTION 2: Personal Information */}
-      <div className="profile-card mb-4">
-        <div className="profile-card-body">
-          <h4 className="profile-section-heading mb-3">Personal Information</h4>
-          <div className="profile-info-grid">
-            <div className="profile-detail-item">
-              <span className="profile-label">First Name</span>
-              <span className="profile-value">{profile.firstName || "Not Provided"}</span>
-            </div>
-            <div className="profile-detail-item">
-              <span className="profile-label">Last Name</span>
-              <span className="profile-value">{profile.lastName || "Not Provided"}</span>
-            </div>
-            <div className="profile-detail-item" style={{ gridColumn: "span 2" }}>
-              <span className="profile-label">Email / Username</span>
-              <span className="profile-value">{profile.userName}</span>
-            </div>
-            <div className="profile-detail-item">
-              <span className="profile-label">Contact Number</span>
-              <span className="profile-value">{profile.contactNumber || "Not Provided"}</span>
-            </div>
-            <div className="profile-detail-item">
-              <span className="profile-label">Address</span>
-              <span className="profile-value">{profile.address || "Not Provided"}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 3: Account Information */}
-      <div className="profile-card mb-4">
-        <div className="profile-card-body">
-          <h4 className="profile-section-heading mb-3">Account Information</h4>
-          <div className="profile-details">
-            <div className="profile-detail-item flex-row justify-content-between align-items-center">
-              <span className="profile-label">Account Status</span>
-              <div>
-                {profile.userStatus === 1 ? (
-                  <span className="profile-status-badge active">Active / Verified</span>
-                ) : (
-                  <span className="profile-status-badge pending">Pending Verification</span>
+              {/* Section D: Profile Management */}
+              <div className="profile-management-actions">
+                <button className="btn-delete" onClick={handleDeleteAccount}>
+                  Delete Account
+                </button>
+                <button className="btn-edit" onClick={handleEditClick}>
+                  Edit Profile
+                </button>
+              </div>
+            </>
+          ) : (
+            /* Inline Edit Form with Profile Photo Upload */
+            <form onSubmit={handleSaveProfile} className="profile-edit-form">
+              <h3 className="section-title">Edit Profile & Photo</h3>
+              
+              <div style={{ marginBottom: '15px', background: 'rgba(255,255,255,0.4)', padding: '12px 15px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.6)' }}>
+                <label className="info-label" style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>Profile Picture Upload</label>
+                <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleFileChange} style={{ fontSize: '0.9rem', color: '#5c4d32' }} />
+                {activeImage && (
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img src={activeImage} alt="Preview" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #d4af37' }} />
+                    <span style={{ fontSize: '0.85rem', color: '#666' }}>Photo ready to save</span>
+                  </div>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* SECTION 4: Profile Management */}
-      <div className="profile-card">
-        <div className="profile-card-body">
-          <h4 className="profile-section-heading mb-3">Profile Management</h4>
-          <div className="profile-actions-row">
-            <button className="profile-btn profile-btn--danger" onClick={() => setShowDeleteModal(true)}>
-              Delete Account
-            </button>
-            <button className="profile-btn profile-btn--primary" onClick={() => setShowEditModal(true)}>
-              Edit Profile
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* EDIT PROFILE MODAL WITH PROFILE IMAGE UPLOAD */}
-      {showEditModal && (
-        <div className="profile-modal-backdrop">
-          <div className="profile-modal-dialog">
-            <div className="profile-modal-content">
-              <div className="profile-modal-header">
-                <h5 className="profile-modal-title">Edit Profile Details</h5>
-                <button type="button" className="profile-close-btn" onClick={() => setShowEditModal(false)}>&times;</button>
-              </div>
-              <form onSubmit={handleUpdateProfile}>
-                <div className="profile-modal-body">
-                  {/* Profile Image Preview & File Input */}
-                  <div className="text-center mb-4">
-                    <label className="profile-form-label d-block">Profile Image</label>
-                    <div className="d-flex flex-column align-items-center gap-2">
-                      {imagePreview ? (
-                        <img
-                          src={imagePreview}
-                          alt="Profile Preview"
-                          className="profile-preview-img"
-                        />
-                      ) : (
-                        <div className="profile-preview-fallback">
-                          👤
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        name="profileImage"
-                        accept="image/*"
-                        className="profile-file-input"
-                        onChange={handleFileChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="profile-form-grid">
-                    <div>
-                      <label className="profile-form-label">First Name</label>
-                      <input
-                        type="text"
-                        className="profile-input"
-                        name="firstName"
-                        value={editForm.firstName}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="profile-form-label">Last Name</label>
-                      <input
-                        type="text"
-                        className="profile-input"
-                        name="lastName"
-                        value={editForm.lastName}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div style={{ gridColumn: "span 2" }}>
-                      <label className="profile-form-label">Contact Number</label>
-                      <input
-                        type="text"
-                        className="profile-input"
-                        name="contactNumber"
-                        value={editForm.contactNumber}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div style={{ gridColumn: "span 2" }}>
-                      <label className="profile-form-label">Address</label>
-                      <input
-                        type="text"
-                        className="profile-input"
-                        name="address"
-                        value={editForm.address}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                  </div>
+              <div className="info-grid">
+                <div className="info-box">
+                  <span className="info-label">First Name</span>
+                  <input type="text" name="firstName" value={editForm.firstName || ''} onChange={handleChange} className="profile-input-field" required />
                 </div>
-                <div className="profile-modal-footer">
-                  <button type="button" className="profile-btn profile-btn--secondary" onClick={() => setShowEditModal(false)}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="profile-btn profile-btn--primary" disabled={isUpdating}>
-                    {isUpdating ? "Saving..." : "Save Changes"}
-                  </button>
+                <div className="info-box">
+                  <span className="info-label">Last Name</span>
+                  <input type="text" name="lastName" value={editForm.lastName || ''} onChange={handleChange} className="profile-input-field" required />
                 </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="info-box">
+                  <span className="info-label">Email / Username</span>
+                  <input type="text" name="email" value={editForm.email || ''} onChange={handleChange} className="profile-input-field" required />
+                </div>
+                <div className="info-box">
+                  <span className="info-label">Contact Number</span>
+                  <input type="text" name="phoneNumber" value={editForm.phoneNumber || ''} onChange={handleChange} className="profile-input-field" />
+                </div>
+                <div className="info-box full-width">
+                  <span className="info-label">Address</span>
+                  <input type="text" name="address" value={editForm.address || ''} onChange={handleChange} className="profile-input-field" />
+                </div>
+              </div>
 
-      {/* DELETE CONFIRMATION MODAL */}
-      {showDeleteModal && (
-        <div className="profile-modal-backdrop">
-          <div className="profile-modal-dialog">
-            <div className="profile-modal-content">
-              <div className="profile-modal-header danger-header">
-                <h5 className="profile-modal-title">Confirm Account Deletion</h5>
-                <button type="button" className="profile-close-btn" onClick={() => setShowDeleteModal(false)}>&times;</button>
-              </div>
-              <div className="profile-modal-body">
-                <p className="text-dark" style={{ fontSize: "1.05rem" }}>
-                  Are you sure you want to permanently delete your account? This action cannot be undone.
-                </p>
-              </div>
-              <div className="profile-modal-footer">
-                <button type="button" className="profile-btn profile-btn--secondary" onClick={() => setShowDeleteModal(false)}>
+              <div className="profile-management-actions" style={{ marginTop: '20px' }}>
+                <button type="button" className="btn-delete" onClick={handleCancelEdit}>
                   Cancel
                 </button>
-                <button type="button" className="profile-btn profile-btn--danger" onClick={handleDeleteAccount} disabled={isUpdating}>
-                  {isUpdating ? "Deleting..." : "Yes, Delete My Account"}
+                <button type="submit" className="btn-edit">
+                  Save Changes
                 </button>
               </div>
-            </div>
-          </div>
+            </form>
+          )}
+
         </div>
-      )}
+      </div>
     </div>
   );
 };

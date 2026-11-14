@@ -51,6 +51,7 @@ export const ESQ_Manage: React.FC = () => {
   // --- 3. GRADES STATE ---
   const [selectedExamForGrades, setSelectedExamForGrades] = useState<number | ''>('');
   const [gradesList, setGradesList] = useState<Grade[]>([]);
+  const [standardGradesList, setStandardGradesList] = useState<Grade[]>([]);
   const [gradeForm, setGradeForm] = useState<SetGradesRequest>({
     name: 'A',
     min: 80,
@@ -72,7 +73,6 @@ export const ESQ_Manage: React.FC = () => {
   const [questionType, setQuestionType] = useState<number>(1);
   const [questionImage, setQuestionImage] = useState<File | null>(null);
 
-  // Integrated Question Options Form State
   const [questionOptions, setQuestionOptions] = useState<{ title: string; isCorrect: boolean }[]>([
     { title: '', isCorrect: false },
     { title: '', isCorrect: false },
@@ -100,6 +100,10 @@ export const ESQ_Manage: React.FC = () => {
 
   useEffect(() => {
     fetchExams();
+    // Fetch system-wide standard grades on load
+    gradeServices.getStandardGrades()
+      .then(data => setStandardGradesList(data))
+      .catch(() => setStandardGradesList([]));
   }, []);
 
   useEffect(() => {
@@ -152,14 +156,33 @@ export const ESQ_Manage: React.FC = () => {
 
     try {
       setError(null);
-      const payload: SetGradesRequest[] = [gradeForm];
-      const res = await gradeServices.setExamGrades(Number(selectedExamForGrades), payload);
-      setMessage(res.message || 'Grade boundary created.');
+      // Sending existing grades list combined with the new grade form as a batch
+      const updatedGradesPayload: SetGradesRequest[] = [
+        ...gradesList.map(g => ({
+          examId: g.examId,
+          name: g.name,
+          min: g.min,
+          max: g.max,
+          cgpa: g.cgpa,
+          isPassGrade: g.isPassGrade
+        })),
+        {
+          examId: Number(selectedExamForGrades),
+          name: gradeForm.name,
+          min: gradeForm.min,
+          max: gradeForm.max,
+          cgpa: gradeForm.cgpa,
+          isPassGrade: gradeForm.isPassGrade
+        }
+      ];
+
+      const res = await gradeServices.setExamGrades(Number(selectedExamForGrades), updatedGradesPayload);
+      setMessage(res.message || 'Custom exam grades configured successfully.');
       setGradeForm({ name: 'A', min: 80, max: 100, cgpa: 4.0, isPassGrade: true });
       const updated = await gradeServices.getGradesByExamId(Number(selectedExamForGrades));
       setGradesList(updated);
     } catch (err: any) {
-      setError(err?.response?.data || 'Failed to create grade boundary.');
+      setError(err?.response?.data || 'Failed to configure grade boundaries.');
     }
   };
 
@@ -253,7 +276,6 @@ export const ESQ_Manage: React.FC = () => {
       formData.append('marks', String(questionMarks));
       formData.append('type', String(questionType));
       
-      // Attach options as JSON string if it's an MCQ or True/False type
       if (questionType === 1 || questionType === 2) {
         const validOptions = questionOptions.filter(o => o.title.trim() !== '');
         formData.append('options', JSON.stringify(validOptions));
@@ -283,7 +305,6 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
-  // Real-time counts computed from database records
   const activeExamsCount = exams.filter(ex => ex.status === 1 || !ex.status).length;
   const totalExamsCount = exams.length;
 
@@ -315,16 +336,17 @@ export const ESQ_Manage: React.FC = () => {
                     <tr>
                       <th>Exam Title</th>
                       <th>Syllabus</th>
-                      <th>Date & Time</th>
+                      <th>Date</th>
+                      <th>Time</th>
                       <th>Duration</th>
                       <th>Total Questions</th>
                       <th>Status</th>
-                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {exams.map(ex => {
-                      const startDateStr = ex.startDate ? new Date(ex.startDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A';
+                      const dateStr = ex.startDate ? new Date(ex.startDate).toLocaleDateString([], { dateStyle: 'medium' }) : 'N/A';
+                      const timeStr = ex.startDate ? new Date(ex.startDate).toLocaleTimeString([], { timeStyle: 'short' }) : 'N/A';
                       return (
                         <tr key={ex.id}>
                           <td>
@@ -332,13 +354,13 @@ export const ESQ_Manage: React.FC = () => {
                             {ex.description && <div style={{ fontSize: '0.85rem', color: '#6b6252' }}>{ex.description}</div>}
                           </td>
                           <td>Syllabus_v1.pdf</td>
-                          <td>{startDateStr}</td>
+                          <td>{dateStr}</td>
+                          <td>{timeStr}</td>
                           <td>2 hours</td>
                           <td style={{ textAlign: 'center' }}>{ex.maxMarks ? Math.round(ex.maxMarks / 5) : 20}</td>
                           <td>
                             <span className="exam-status-badge active">Active</span>
                           </td>
-                          <td><span style={{ letterSpacing: '2px', fontWeight: 'bold', color: '#6b6252' }}>...</span></td>
                         </tr>
                       );
                     })}
@@ -542,7 +564,7 @@ export const ESQ_Manage: React.FC = () => {
               </div>
 
               <div className="manage-card">
-                <h3>Grade Scale Settings</h3>
+                <h3>Grade Scale Settings (Custom Exam Rubric / Fallback to Standard)</h3>
                 <form onSubmit={handleCreateGrade} className="manage-form">
                   <div>
                     <label>Grade Name (e.g., A+)</label>
@@ -567,20 +589,21 @@ export const ESQ_Manage: React.FC = () => {
                       <input type="checkbox" checked={gradeForm.isPassGrade} onChange={e => setGradeForm({ ...gradeForm, isPassGrade: e.target.checked })} /> Is Passing Grade
                     </label>
                   </div>
-                  <button type="submit" className="manage-btn manage-btn--primary">Add Grade Scale</button>
+                  <button type="submit" className="manage-btn manage-btn--primary">Add / Update Grade Scale</button>
                 </form>
               </div>
 
-              <h3>Configured Grade Boundaries</h3>
+              <h3>Configured Grade Boundaries for Selected Exam</h3>
               <ul className="manage-list">
                 {gradesList.map((g, idx) => (
                   <li key={idx} className="manage-item">
                     <div>
-                      <h4>{g.name} (CGPA: {g.cgpa})</h4>
+                      <h4>{g.name} (CGPA: {g.cgpa}) {g.examId ? <span style={{fontSize: '0.75rem', color: '#0d6efd'}}>[Custom Rubric]</span> : <span style={{fontSize: '0.75rem', color: '#6c757d'}}>[Standard Rubric Fallback]</span>}</h4>
                       <p>{g.min}% - {g.max}% [{g.isPassGrade ? 'PASS' : 'FAIL'}]</p>
                     </div>
                   </li>
                 ))}
+                {gradesList.length === 0 && <p>No custom grades configured. Using system standard grades.</p>}
               </ul>
             </div>
           )}
@@ -640,7 +663,6 @@ export const ESQ_Manage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Integrated Options Builder for MCQ / True False */}
                     {(questionType === 1 || questionType === 2) && (
                       <div style={{ margin: '15px 0', padding: '16px', background: 'rgba(255,255,255,0.45)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.7)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -691,7 +713,7 @@ export const ESQ_Manage: React.FC = () => {
                           <h4>{item.question.title}</h4>
                           <small>{item.question.marks} Marks</small>
                         </div>
-                        {item.options && item.options.length > 0 && (
+                        {item.options && item.options.length > 0 &&/null/ && (
                           <ul className="manage-options">
                             {item.options.map((o) => (
                               <li key={o.id} className={o.isCorrect ? 'option-correct' : undefined}>

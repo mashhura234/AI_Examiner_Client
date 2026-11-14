@@ -51,6 +51,12 @@ export const Navbar: React.FC = () => {
                         >
                             Faculty: Assign Students
                         </Link>
+                        <Link 
+                            to="/grading" 
+                            className={location.pathname === "/grading" ? "nav-item-active" : ""}
+                        >
+                            Grading Portal
+                        </Link>
                         <button onClick={handleLogout} className="logout-btn">
                             Logout
                         </button>

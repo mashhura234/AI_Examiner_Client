@@ -1,6 +1,7 @@
+// src/Models/gradeModel.ts
 export interface Grade {
   id: number;
-  examId: number;
+  examId: number | null;
   name: string;
   min: number;
   max: number;
@@ -9,6 +10,7 @@ export interface Grade {
 }
 
 export interface SetGradesRequest {
+  examId?: number | null;
   name: string;
   min: number;
   max: number;
