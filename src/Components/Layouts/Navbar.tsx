@@ -34,28 +34,22 @@ export const Navbar: React.FC = () => {
                 ) : (
                     <>
                         <Link 
-                            to="/" 
-                            className={location.pathname === "/" ? "nav-item-active" : ""}
-                        >
-                            Dashboard
-                        </Link>
-                        <Link 
                             to="/exams" 
                             className={isExamManagementActive ? "nav-item-active" : ""}
                         >
                             Exam & Syllabus Management
                         </Link>
                         <Link 
-                            to="/assessment" 
-                            className={location.pathname === "/assessment" ? "nav-item-active" : ""}
+                            to="/exam-assessment" 
+                            className={location.pathname === "/exam-assessment" ? "nav-item-active" : ""}
                         >
-                            Assessment Portal
+                            Exam Assessment
                         </Link>
                         <Link 
-                            to="/profile" 
-                            className={location.pathname === "/profile" ? "nav-item-active" : ""}
+                            to="/faculty/assign-students" 
+                            className={location.pathname === "/faculty/assign-students" ? "nav-item-active" : ""}
                         >
-                            Profile
+                            Faculty: Assign Students
                         </Link>
                         <button onClick={handleLogout} className="logout-btn">
                             Logout

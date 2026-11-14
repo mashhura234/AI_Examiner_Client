@@ -1,0 +1,237 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap');
+
+/* ---------- Living-Room Background Shell ---------- */
+body:has(.exam-assessment-page) {
+  background:
+    linear-gradient(135deg, rgba(250, 244, 232, 0.28) 0%, rgba(228, 214, 188, 0.38) 100%),
+    url('../assets/BG.jpg') center center / cover no-repeat fixed !important;
+  font-family: 'Barlow Semi Condensed', 'Inter', sans-serif !important;
+}
+
+.exam-assessment-page {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 20px auto 60px;
+  padding: 0 28px;
+  color: #2b2a28;
+  font-family: 'Barlow Semi Condensed', 'Inter', sans-serif;
+}
+
+.exam-assessment-page h2 {
+  margin-bottom: 22px;
+  padding: 24px 32px;
+  font-size: 2.1rem;
+  font-weight: 600;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.34) 100%);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  box-shadow: 0 18px 44px rgba(90, 65, 20, 0.14);
+}
+
+.exam-card {
+  margin-bottom: 24px;
+  padding: 26px 28px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.35) 100%);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 24px;
+  box-shadow: 0 18px 44px rgba(90, 65, 20, 0.14);
+}
+
+.exam-item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exam-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.exam-item-header h4 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.exam-set-title {
+  color: #6e4e08;
+  font-weight: 700;
+}
+
+.exam-meta-text {
+  margin: 0;
+  color: #6b6252;
+  font-size: 0.95rem;
+}
+
+.exam-action-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+/* ---------- Status Badges ---------- */
+.exam-badge {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.exam-badge--invited { background: rgba(245, 184, 46, 0.24); color: #6e4e08; }
+.exam-badge--accepted { background: rgba(59, 130, 246, 0.2); color: #1d4ed8; }
+.exam-badge--progress { background: rgba(16, 185, 129, 0.2); color: #047857; }
+.exam-badge--completed { background: rgba(107, 114, 128, 0.2); color: #374151; }
+.exam-badge--declined { background: rgba(239, 68, 68, 0.2); color: #b91c1c; }
+
+/* ---------- Buttons ---------- */
+.exam-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.exam-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+}
+
+.exam-btn--primary {
+  background: linear-gradient(180deg, #ffe08a 0%, #f2b21f 60%, #dd980b 100%);
+  color: #312102;
+  box-shadow: 0 8px 18px rgba(214, 150, 10, 0.35);
+}
+
+.exam-btn--success {
+  background: linear-gradient(180deg, #f3cd6c 0%, #dba11a 100%);
+  color: #312102;
+}
+
+.exam-btn--info {
+  background: rgba(255, 255, 255, 0.85);
+  color: #5c4d32;
+  border-color: rgba(217, 169, 63, 0.55);
+}
+
+.exam-btn--danger {
+  background: linear-gradient(180deg, #f2968a 0%, #d9534f 100%);
+  color: #ffffff;
+}
+
+/* ---------- Answering Workspace & Questions ---------- */
+.exam-workspace {
+  margin-top: 30px;
+}
+
+.exam-workspace-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.exam-workspace-header h3 {
+  margin: 0;
+}
+
+.exam-total-questions {
+  font-weight: 700;
+  color: #5c4d32;
+}
+
+.exam-divider {
+  border: none;
+  border-top: 1px solid rgba(120, 90, 30, 0.15);
+  margin: 18px 0;
+}
+
+.exam-question-block {
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(120, 90, 30, 0.12);
+}
+
+.exam-question-title {
+  font-size: 1.1rem;
+  margin: 0 0 6px 0;
+}
+
+.exam-marks {
+  color: #6e4e08;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.exam-question-desc {
+  margin: 0 0 10px 0;
+  color: #6b6252;
+}
+
+.exam-options-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+  display: grid;
+  gap: 8px;
+}
+
+.exam-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+.exam-radio-label input[type='radio'] {
+  accent-color: #f2b21f;
+  width: 18px;
+  height: 18px;
+}
+
+.exam-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 1.05rem;
+  color: #2b2a28;
+  outline: none;
+  box-shadow: inset 0 1px 3px rgba(120, 90, 30, 0.12);
+  box-sizing: border-box;
+}
+
+.exam-textarea:focus {
+  border-color: #f2b632;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(242, 182, 50, 0.3);
+}
+
+.exam-success, .exam-error, .exam-info {
+  margin-bottom: 18px;
+  padding: 14px 20px;
+  border-radius: 14px;
+  font-weight: 600;
+}
+
+.exam-success { background: rgba(111, 185, 143, 0.26); border: 1px solid rgba(80, 160, 115, 0.45); color: #2f6b4a; }
+.exam-error { background: rgba(239, 98, 84, 0.15); border: 1px solid rgba(239, 98, 84, 0.4); color: #9b2f25; }
+.exam-info { background: rgba(255, 255, 255, 0.45); color: #6b6252; }

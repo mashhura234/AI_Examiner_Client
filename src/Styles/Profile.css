@@ -1,0 +1,372 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap');
+
+/* ---------- Background & Shell ---------- */
+body:has(.profile-page) {
+  background:
+    linear-gradient(135deg, rgba(250, 244, 232, 0.28) 0%, rgba(228, 214, 188, 0.38) 100%),
+    url('../assets/BG.jpg') center center / cover no-repeat fixed !important;
+  font-family: 'Barlow Semi Condensed', 'Inter', sans-serif !important;
+}
+
+.profile-page {
+  position: relative;
+  z-index: 1;
+  max-width: 700px;
+  margin: 30px auto 60px;
+  padding: 0 20px;
+  color: #2b2a28;
+  font-family: 'Barlow Semi Condensed', 'Inter', sans-serif;
+}
+
+/* ---------- Frosted Glass Card ---------- */
+.profile-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(90, 65, 20, 0.14);
+  overflow: hidden;
+}
+
+.profile-card-body {
+  padding: 28px 32px;
+}
+
+.profile-title {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #2b2a28;
+  margin: 0;
+}
+
+.profile-section-heading {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #3d3527;
+  border-bottom: 1px solid rgba(120, 90, 30, 0.15);
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+
+/* ---------- Avatar Styles ---------- */
+.profile-avatar-img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 25px rgba(90, 65, 20, 0.15);
+}
+
+.profile-avatar-initials {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f2b21f 0%, #dd980b 100%);
+  color: #312102;
+  font-size: 3rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px rgba(214, 150, 10, 0.3);
+  border: 3px solid rgba(255, 255, 255, 0.9);
+}
+
+.profile-username {
+  color: #6b6252;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ---------- Details Grid ---------- */
+.profile-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.profile-details {
+  display: grid;
+  gap: 16px;
+}
+
+.profile-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.profile-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b6252;
+}
+
+.profile-value {
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: #2b2a28;
+}
+
+.profile-status-badge {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.profile-status-badge.active {
+  background: rgba(111, 185, 143, 0.25);
+  color: #2f6b4a;
+}
+
+.profile-status-badge.pending {
+  background: rgba(245, 184, 46, 0.25);
+  color: #7a5804;
+}
+
+/* ---------- Action Buttons ---------- */
+.profile-actions-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 24px;
+  border-radius: 14px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.profile-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+}
+
+.profile-btn--primary {
+  background: linear-gradient(180deg, #ffe08a 0%, #f2b21f 60%, #dd980b 100%);
+  color: #312102;
+  box-shadow: 0 8px 20px rgba(214, 150, 10, 0.35);
+}
+
+.profile-btn--danger {
+  background: linear-gradient(180deg, #f2968a 0%, #d9534f 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(217, 83, 79, 0.3);
+}
+
+.profile-btn--secondary {
+  background: rgba(255, 255, 255, 0.7);
+  color: #5c4d32;
+}
+
+/* ---------- Alerts ---------- */
+.profile-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-radius: 14px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 20px rgba(90, 65, 20, 0.08);
+}
+
+.profile-alert-success {
+  background: rgba(111, 185, 143, 0.28);
+  border: 1px solid rgba(80, 160, 115, 0.45);
+  color: #2f6b4a;
+}
+
+.profile-alert-danger {
+  background: rgba(239, 98, 84, 0.2);
+  border: 1px solid rgba(239, 98, 84, 0.4);
+  color: #9b2f25;
+}
+
+.profile-alert-close {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  color: inherit;
+}
+
+.profile-error-box {
+  padding: 30px;
+  color: #9b2f25;
+  font-weight: 600;
+  background: rgba(239, 98, 84, 0.15);
+  border: 1px solid rgba(239, 98, 84, 0.3);
+}
+
+/* ---------- Modals ---------- */
+.profile-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(43, 42, 40, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.profile-modal-dialog {
+  width: 100%;
+  max-width: 500px;
+}
+
+.profile-modal-content {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.85) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(90, 65, 20, 0.25);
+  overflow: hidden;
+  animation: modalFadeIn 0.25s ease;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.profile-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: linear-gradient(180deg, #ffe08a 0%, #f2b21f 100%);
+  color: #312102;
+}
+
+.profile-modal-header.danger-header {
+  background: linear-gradient(180deg, #f2968a 0%, #d9534f 100%);
+  color: #ffffff;
+}
+
+.profile-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.profile-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: inherit;
+  line-height: 1;
+}
+
+.profile-modal-body {
+  padding: 24px;
+}
+
+.profile-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.4);
+  border-top: 1px solid rgba(120, 90, 30, 0.12);
+}
+
+/* ---------- Form Inputs & Previews in Modal ---------- */
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.profile-form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #5c4d32;
+}
+
+.profile-input {
+  width: 100%;
+  padding: 11px 16px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  font-size: 1rem;
+  color: #2b2a28;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.profile-input:focus {
+  background: #ffffff;
+  border-color: #f2b632;
+  box-shadow: 0 0 0 4px rgba(242, 182, 50, 0.25);
+}
+
+.profile-preview-img {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 6px 16px rgba(90, 65, 20, 0.12);
+}
+
+.profile-preview-fallback {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: rgba(107, 114, 128, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+
+.profile-file-input {
+  font-size: 0.88rem;
+  color: #6b6252;
+  max-width: 240px;
+}
+
+/* ---------- Spinner ---------- */
+.profile-spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(242, 178, 31, 0.2);
+  border-top-color: #f2b21f;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

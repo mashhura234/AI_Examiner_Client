@@ -72,6 +72,14 @@ export const ESQ_Manage: React.FC = () => {
   const [questionType, setQuestionType] = useState<number>(1);
   const [questionImage, setQuestionImage] = useState<File | null>(null);
 
+  // Integrated Question Options Form State
+  const [questionOptions, setQuestionOptions] = useState<{ title: string; isCorrect: boolean }[]>([
+    { title: '', isCorrect: false },
+    { title: '', isCorrect: false },
+    { title: '', isCorrect: false },
+    { title: '', isCorrect: false },
+  ]);
+
   const fetchExams = async () => {
     try {
       setLoading(true);
@@ -214,6 +222,24 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
+  const handleOptionChange = (index: number, field: 'title' | 'isCorrect', value: string | boolean) => {
+    const updated = [...questionOptions];
+    if (field === 'title') {
+      updated[index].title = value as string;
+    } else {
+      updated[index].isCorrect = value as boolean;
+    }
+    setQuestionOptions(updated);
+  };
+
+  const handleAddOptionRow = () => {
+    setQuestionOptions([...questionOptions, { title: '', isCorrect: false }]);
+  };
+
+  const handleRemoveOptionRow = (index: number) => {
+    setQuestionOptions(questionOptions.filter((_, i) => i !== index));
+  };
+
   const handleCreateQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSetId) return alert('Select a question set first.');
@@ -226,6 +252,13 @@ export const ESQ_Manage: React.FC = () => {
       formData.append('description', questionDesc);
       formData.append('marks', String(questionMarks));
       formData.append('type', String(questionType));
+      
+      // Attach options as JSON string if it's an MCQ or True/False type
+      if (questionType === 1 || questionType === 2) {
+        const validOptions = questionOptions.filter(o => o.title.trim() !== '');
+        formData.append('options', JSON.stringify(validOptions));
+      }
+
       if (questionImage) {
         formData.append('image', questionImage);
       }
@@ -236,6 +269,12 @@ export const ESQ_Manage: React.FC = () => {
       setQuestionDesc('');
       setQuestionMarks(5);
       setQuestionImage(null);
+      setQuestionOptions([
+        { title: '', isCorrect: false },
+        { title: '', isCorrect: false },
+        { title: '', isCorrect: false },
+        { title: '', isCorrect: false },
+      ]);
 
       const data = await questionServices.getQuestionsBySet(Number(selectedSetId));
       setQuestionsList(data);
@@ -255,10 +294,9 @@ export const ESQ_Manage: React.FC = () => {
       {message && <p className="manage-success">{message}</p>}
       {error && <p className="manage-error">{error}</p>}
 
-      {/* --- VIEW 1: EXAM LIST VIEW WITH REAL-TIME STATS & FIXED ROW CLICK --- */}
+      {/* --- VIEW 1: EXAM LIST VIEW --- */}
       {viewMode === 'list' && (
         <div className="manage-dashboard-grid">
-          {/* Main Table Column */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0 }}>All Exams</h3>
@@ -315,7 +353,6 @@ export const ESQ_Manage: React.FC = () => {
             )}
           </div>
 
-          {/* Right Sidebar Widgets with Real-Time Stats */}
           <div className="dashboard-sidebar">
             <div className="sidebar-widget">
               <h4>Quick Stats & Resources</h4>
@@ -359,7 +396,6 @@ export const ESQ_Manage: React.FC = () => {
             &larr; Back to All Exams
           </button>
 
-          {/* Sub-Tabs */}
           <div className="esq-subtabs">
             <button 
               onClick={() => setActiveTab('exams')}
@@ -383,7 +419,6 @@ export const ESQ_Manage: React.FC = () => {
             </button>
           </div>
 
-          {/* SUB-TAB 1: EXAMS */}
           {activeTab === 'exams' && (
             <div className="manage-card">
               <h3>Exam Configurator</h3>
@@ -421,7 +456,6 @@ export const ESQ_Manage: React.FC = () => {
             </div>
           )}
 
-          {/* SUB-TAB 2: SYLLABUS */}
           {activeTab === 'syllabus' && (
             <div>
               <div className="manage-field">
@@ -498,7 +532,6 @@ export const ESQ_Manage: React.FC = () => {
             </div>
           )}
 
-          {/* SUB-TAB 3: GRADES */}
           {activeTab === 'grades' && (
             <div>
               <div className="manage-field">
@@ -552,7 +585,6 @@ export const ESQ_Manage: React.FC = () => {
             </div>
           )}
 
-          {/* SUB-TAB 4: QUESTIONS & SETS */}
           {activeTab === 'questions' && (
             <div>
               <div className="manage-field">
@@ -607,6 +639,43 @@ export const ESQ_Manage: React.FC = () => {
                         </select>
                       </div>
                     </div>
+
+                    {/* Integrated Options Builder for MCQ / True False */}
+                    {(questionType === 1 || questionType === 2) && (
+                      <div style={{ margin: '15px 0', padding: '16px', background: 'rgba(255,255,255,0.45)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.7)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <label style={{ fontWeight: 600 }}>Answer Options & Correct Answer Designation</label>
+                          <button type="button" onClick={handleAddOptionRow} className="manage-btn manage-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
+                            + Add Option
+                          </button>
+                        </div>
+                        
+                        {questionOptions.map((opt, idx) => (
+                          <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                            <input 
+                              type="text" 
+                              placeholder={`Option ${idx + 1} text`} 
+                              value={opt.title} 
+                              onChange={e => handleOptionChange(idx, 'title', e.target.value)}
+                              style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.9)' }}
+                            />
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={opt.isCorrect} 
+                                onChange={e => handleOptionChange(idx, 'isCorrect', e.target.checked)}
+                              /> Correct
+                            </label>
+                            {questionOptions.length > 2 && (
+                              <button type="button" onClick={() => handleRemoveOptionRow(idx)} style={{ background: 'transparent', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem' }}>
+                                &times;
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div>
                       <label>Optional Image Attachment</label>
                       <input type="file" onChange={e => setQuestionImage(e.target.files ? e.target.files[0] : null)} />

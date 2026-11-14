@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap');
+
+/* ---------- Living-Room Background Shell ---------- */
+body:has(.assign-students-page) {
+  background:
+    linear-gradient(135deg, rgba(250, 244, 232, 0.28) 0%, rgba(228, 214, 188, 0.38) 100%),
+    url('../assets/BG.jpg') center center / cover no-repeat fixed !important;
+  font-family: 'Barlow Semi Condensed', 'Inter', sans-serif !important;
+}
+
+.assign-students-page {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 20px auto 60px;
+  padding: 0 28px;
+  color: #2b2a28;
+  font-family: 'Barlow Semi Condensed', 'Inter', sans-serif;
+}
+
+.assign-students-page h2 {
+  margin-bottom: 22px;
+  padding: 24px 32px;
+  font-size: 2.1rem;
+  font-weight: 600;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.34) 100%);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  box-shadow: 0 18px 44px rgba(90, 65, 20, 0.14);
+}
+
+.assign-card {
+  margin-bottom: 24px;
+  padding: 26px 28px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.35) 100%);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 24px;
+  box-shadow: 0 18px 44px rgba(90, 65, 20, 0.14);
+}
+
+/* ---------- Configuration Grid ---------- */
+.assign-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 14px;
+}
+
+.assign-config-field label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #5c4d32;
+}
+
+/* ---------- Student Selection Table ---------- */
+.assign-table-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 16px;
+}
+
+.assign-search-wrapper {
+  flex: 1;
+  max-width: 350px;
+  min-width: 240px;
+}
+
+.assign-search-input {
+  width: 100%;
+  padding: 10px 16px !important;
+  font-size: 0.98rem !important;
+}
+
+.assign-table-container {
+  overflow-x: auto;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.assign-student-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.assign-student-table th {
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #5c4d32;
+  border-bottom: 1px solid rgba(120, 90, 30, 0.2);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.assign-student-table td {
+  padding: 14px 16px;
+  font-size: 0.98rem;
+  color: #2b2a28;
+  border-bottom: 1px solid rgba(120, 90, 30, 0.1);
+}
+
+.assign-student-table tbody tr:hover {
+  background: rgba(255, 214, 102, 0.18);
+}
+
+.assign-student-table tbody tr.selected-row {
+  background: rgba(242, 178, 31, 0.25);
+}
+
+.assign-type-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.18);
+  color: #1d4ed8;
+}
+
+/* ---------- Buttons & Inputs ---------- */
+.assign-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.assign-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+}
+
+.assign-btn--primary {
+  background: linear-gradient(180deg, #ffe08a 0%, #f2b21f 60%, #dd980b 100%);
+  color: #312102;
+  box-shadow: 0 8px 18px rgba(214, 150, 10, 0.35);
+}
+
+.assign-assign-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 1.1rem;
+  margin-top: 10px;
+  border-radius: 16px !important;
+}
+
+.assign-success, .assign-error {
+  margin-bottom: 18px;
+  padding: 14px 20px;
+  border-radius: 14px;
+  font-weight: 600;
+}
+
+.assign-success {
+  background: rgba(111, 185, 143, 0.26);
+  border: 1px solid rgba(80, 160, 115, 0.45);
+  color: #2f6b4a;
+}
+
+.assign-error {
+  background: rgba(239, 98, 84, 0.15);
+  border: 1px solid rgba(239, 98, 84, 0.4);
+  color: #9b2f25;
+}
+
+@media (max-width: 900px) {
+  .assign-config-grid {
+    grid-template-columns: 1fr;
+  }
+}

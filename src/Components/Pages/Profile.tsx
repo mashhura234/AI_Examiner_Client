@@ -3,6 +3,7 @@ import { AuthService } from "../../Services/authServices";
 import { AuthContext } from "../Contexts/auth/authContext";
 import type { UserProfile } from "../../Models/userModel";
 import { CommonService } from "../../Services/commonServices";
+import "../../Styles/Profile.css";
 
 const API_BASE_URL = "https://localhost:7240";
 
@@ -92,7 +93,7 @@ export const Profile: React.FC = () => {
     }
   };
 
-  // 1. Handle UPDATE submit matching UserUpdateRequest structure
+  // Handle UPDATE submit matching UserUpdateRequest structure
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
@@ -127,7 +128,7 @@ export const Profile: React.FC = () => {
     }
   };
 
-  // 2. Handle DELETE account
+  // Handle DELETE account
   const handleDeleteAccount = async () => {
     if (!profile) return;
     setIsUpdating(true);
@@ -149,18 +150,17 @@ export const Profile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="container mt-5 text-center">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading profile...</span>
-        </div>
+      <div className="profile-page text-center" style={{ padding: "100px 0" }}>
+        <div className="profile-spinner"></div>
+        <p className="mt-3 text-secondary">Loading profile...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="container mt-5" style={{ maxWidth: "500px" }}>
-        <div className="alert alert-danger text-center">{error}</div>
+      <div className="profile-page" style={{ maxWidth: "600px", margin: "60px auto" }}>
+        <div className="profile-card profile-error-box text-center">{error}</div>
       </div>
     );
   }
@@ -171,164 +171,181 @@ export const Profile: React.FC = () => {
   const fullName = `${profile.firstName || ""} ${profile.lastName || ""}`.trim();
 
   return (
-    <div className="container mt-5 mb-5" style={{ maxWidth: "550px" }}>
+    <div className="profile-page">
       {actionMessage && (
-        <div className={`alert alert-${actionMessage.type} alert-dismissible fade show`} role="alert">
-          {actionMessage.text}
-          <button type="button" className="btn-close" onClick={() => setActionMessage(null)}></button>
+        <div className={`profile-alert profile-alert-${actionMessage.type}`}>
+          <span>{actionMessage.text}</span>
+          <button type="button" className="profile-alert-close" onClick={() => setActionMessage(null)}>&times;</button>
         </div>
       )}
 
-      <div className="card shadow-sm border-0 rounded-3">
-        <div className="card-body p-4 text-center">
-          
-          {/* Full Name Displayed Above Profile Image */}
-          <h3 className="fw-bold mb-3">{fullName || "User Profile"}</h3>
-
-          {/* Profile Avatar */}
+      {/* SECTION 1: Profile Header */}
+      <div className="profile-card profile-header-card mb-4">
+        <div className="profile-card-body text-center">
           <div className="mb-3 d-flex justify-content-center">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
                 alt={fullName || profile.userName}
-                className="rounded-circle img-thumbnail shadow-sm"
-                style={{ width: "130px", height: "130px", objectFit: "cover" }}
+                className="profile-avatar-img"
               />
             ) : (
-              <div
-                className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center shadow-sm"
-                style={{ width: "130px", height: "130px", fontSize: "3rem", fontWeight: "bold" }}
-              >
+              <div className="profile-avatar-initials">
                 {fullName ? fullName.charAt(0).toUpperCase() : "U"}
               </div>
             )}
           </div>
 
-          <p className="text-muted mb-2">@{profile.userName}</p>
+          <h2 className="profile-title mb-1">{fullName || "User Profile"}</h2>
+          <p className="profile-username mb-3">@{profile.userName}</p>
 
-          <span className="badge bg-primary px-3 py-2 mb-3">User</span>
+          <div className="d-flex justify-content-center">
+            {profile.userStatus === 1 ? (
+              <span className="profile-status-badge active">● Active Account</span>
+            ) : (
+              <span className="profile-status-badge pending">● Pending Verification</span>
+            )}
+          </div>
+        </div>
+      </div>
 
-          <hr />
-
-          {/* Personal Details */}
-          <div className="text-start">
-            <div className="mb-2">
-              <strong className="text-secondary">Email / Username:</strong>
-              <div className="text-dark">{profile.userName}</div>
+      {/* SECTION 2: Personal Information */}
+      <div className="profile-card mb-4">
+        <div className="profile-card-body">
+          <h4 className="profile-section-heading mb-3">Personal Information</h4>
+          <div className="profile-info-grid">
+            <div className="profile-detail-item">
+              <span className="profile-label">First Name</span>
+              <span className="profile-value">{profile.firstName || "Not Provided"}</span>
             </div>
-
-            <div className="mb-2">
-              <strong className="text-secondary">Contact Number:</strong>
-              <div className="text-dark">{profile.contactNumber || "Not Provided"}</div>
+            <div className="profile-detail-item">
+              <span className="profile-label">Last Name</span>
+              <span className="profile-value">{profile.lastName || "Not Provided"}</span>
             </div>
-
-            <div className="mb-2">
-              <strong className="text-secondary">Address:</strong>
-              <div className="text-dark">{profile.address || "Not Provided"}</div>
+            <div className="profile-detail-item" style={{ gridColumn: "span 2" }}>
+              <span className="profile-label">Email / Username</span>
+              <span className="profile-value">{profile.userName}</span>
             </div>
+            <div className="profile-detail-item">
+              <span className="profile-label">Contact Number</span>
+              <span className="profile-value">{profile.contactNumber || "Not Provided"}</span>
+            </div>
+            <div className="profile-detail-item">
+              <span className="profile-label">Address</span>
+              <span className="profile-value">{profile.address || "Not Provided"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-            <div className="mt-3">
-              <strong className="text-secondary">Account Status:</strong>
+      {/* SECTION 3: Account Information */}
+      <div className="profile-card mb-4">
+        <div className="profile-card-body">
+          <h4 className="profile-section-heading mb-3">Account Information</h4>
+          <div className="profile-details">
+            <div className="profile-detail-item flex-row justify-content-between align-items-center">
+              <span className="profile-label">Account Status</span>
               <div>
                 {profile.userStatus === 1 ? (
-                  <span className="badge bg-success">Active / Verified</span>
+                  <span className="profile-status-badge active">Active / Verified</span>
                 ) : (
-                  <span className="badge bg-warning text-dark">Pending Verification</span>
+                  <span className="profile-status-badge pending">Pending Verification</span>
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Profile Action Buttons */}
-            <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-              <button className="btn btn-outline-danger btn-sm" onClick={() => setShowDeleteModal(true)}>
-                Delete Account
-              </button>
-              <button className="btn btn-primary" onClick={() => setShowEditModal(true)}>
-                Edit Profile
-              </button>
-            </div>
+      {/* SECTION 4: Profile Management */}
+      <div className="profile-card">
+        <div className="profile-card-body">
+          <h4 className="profile-section-heading mb-3">Profile Management</h4>
+          <div className="profile-actions-row">
+            <button className="profile-btn profile-btn--danger" onClick={() => setShowDeleteModal(true)}>
+              Delete Account
+            </button>
+            <button className="profile-btn profile-btn--primary" onClick={() => setShowEditModal(true)}>
+              Edit Profile
+            </button>
           </div>
         </div>
       </div>
 
       {/* EDIT PROFILE MODAL WITH PROFILE IMAGE UPLOAD */}
       {showEditModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header bg-primary text-white">
-                <h5 className="modal-title">Edit Profile Details</h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowEditModal(false)}></button>
+        <div className="profile-modal-backdrop">
+          <div className="profile-modal-dialog">
+            <div className="profile-modal-content">
+              <div className="profile-modal-header">
+                <h5 className="profile-modal-title">Edit Profile Details</h5>
+                <button type="button" className="profile-close-btn" onClick={() => setShowEditModal(false)}>&times;</button>
               </div>
               <form onSubmit={handleUpdateProfile}>
-                <div className="modal-body">
+                <div className="profile-modal-body">
                   {/* Profile Image Preview & File Input */}
-                  <div className="text-center mb-3">
-                    <label className="form-label fw-semibold d-block">Profile Image</label>
-                    <div className="d-flex flex-column align-items-center">
+                  <div className="text-center mb-4">
+                    <label className="profile-form-label d-block">Profile Image</label>
+                    <div className="d-flex flex-column align-items-center gap-2">
                       {imagePreview ? (
                         <img
                           src={imagePreview}
                           alt="Profile Preview"
-                          className="rounded-circle mb-2 shadow-sm object-fit-cover"
-                          style={{ width: "80px", height: "80px" }}
+                          className="profile-preview-img"
                         />
                       ) : (
-                        <div
-                          className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center mb-2"
-                          style={{ width: "80px", height: "80px" }}
-                        >
-                          <i className="bi bi-person fs-3"></i>
+                        <div className="profile-preview-fallback">
+                          👤
                         </div>
                       )}
                       <input
                         type="file"
                         name="profileImage"
                         accept="image/*"
-                        className="form-control form-control-sm"
+                        className="profile-file-input"
                         onChange={handleFileChange}
                       />
                     </div>
                   </div>
 
-                  <div className="row g-3">
-                    <div className="col-6">
-                      <label className="form-label fw-semibold">First Name</label>
+                  <div className="profile-form-grid">
+                    <div>
+                      <label className="profile-form-label">First Name</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="profile-input"
                         name="firstName"
                         value={editForm.firstName}
                         onChange={handleInputChange}
                         required
                       />
                     </div>
-                    <div className="col-6">
-                      <label className="form-label fw-semibold">Last Name</label>
+                    <div>
+                      <label className="profile-form-label">Last Name</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="profile-input"
                         name="lastName"
                         value={editForm.lastName}
                         onChange={handleInputChange}
                         required
                       />
                     </div>
-                    <div className="col-12">
-                      <label className="form-label fw-semibold">Contact Number</label>
+                    <div style={{ gridColumn: "span 2" }}>
+                      <label className="profile-form-label">Contact Number</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="profile-input"
                         name="contactNumber"
                         value={editForm.contactNumber}
                         onChange={handleInputChange}
                       />
                     </div>
-                    <div className="col-12">
-                      <label className="form-label fw-semibold">Address</label>
+                    <div style={{ gridColumn: "span 2" }}>
+                      <label className="profile-form-label">Address</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="profile-input"
                         name="address"
                         value={editForm.address}
                         onChange={handleInputChange}
@@ -336,11 +353,11 @@ export const Profile: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>
+                <div className="profile-modal-footer">
+                  <button type="button" className="profile-btn profile-btn--secondary" onClick={() => setShowEditModal(false)}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary" disabled={isUpdating}>
+                  <button type="submit" className="profile-btn profile-btn--primary" disabled={isUpdating}>
                     {isUpdating ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
@@ -352,21 +369,23 @@ export const Profile: React.FC = () => {
 
       {/* DELETE CONFIRMATION MODAL */}
       {showDeleteModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header bg-danger text-white">
-                <h5 className="modal-title">Confirm Account Deletion</h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowDeleteModal(false)}></button>
+        <div className="profile-modal-backdrop">
+          <div className="profile-modal-dialog">
+            <div className="profile-modal-content">
+              <div className="profile-modal-header danger-header">
+                <h5 className="profile-modal-title">Confirm Account Deletion</h5>
+                <button type="button" className="profile-close-btn" onClick={() => setShowDeleteModal(false)}>&times;</button>
               </div>
-              <div className="modal-body">
-                <p>Are you sure you want to permanently delete your account? This action cannot be undone.</p>
+              <div className="profile-modal-body">
+                <p className="text-dark" style={{ fontSize: "1.05rem" }}>
+                  Are you sure you want to permanently delete your account? This action cannot be undone.
+                </p>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>
+              <div className="profile-modal-footer">
+                <button type="button" className="profile-btn profile-btn--secondary" onClick={() => setShowDeleteModal(false)}>
                   Cancel
                 </button>
-                <button type="button" className="btn btn-danger" onClick={handleDeleteAccount} disabled={isUpdating}>
+                <button type="button" className="profile-btn profile-btn--danger" onClick={handleDeleteAccount} disabled={isUpdating}>
                   {isUpdating ? "Deleting..." : "Yes, Delete My Account"}
                 </button>
               </div>
