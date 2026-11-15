@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import axios from '../../interceptor';
 import { examServices } from '../../Services/examServices';
 import { syllabusServices } from '../../Services/syllabusServices';
 import { gradeServices } from '../../Services/gradeServices';
@@ -20,9 +21,13 @@ export const ESQ_Manage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState<boolean>(false);
+  const [isAiSuccessModalOpen, setIsAiSuccessModalOpen] = useState<boolean>(false);
 
-  // --- 1. EXAMS STATE ---
+  // --- 1. EXAMS STATE WITH PARTICIPANT MAPPING ---
   const [exams, setExams] = useState<Exam[]>([]);
+  const [examSyllabiMap, setExamSyllabiMap] = useState<{ [examId: number]: string }>({});
+  const [examParticipantsMap, setExamParticipantsMap] = useState<{ [examId: number]: number }>({});
+
   const [examForm, setExamForm] = useState<CreateExamRequest>({
     name: '',
     description: '',
@@ -66,6 +71,17 @@ export const ESQ_Manage: React.FC = () => {
   const [selectedSetId, setSelectedSetId] = useState<number | ''>('');
   const [questionsList, setQuestionsList] = useState<QuestionWithOptionsResponse[]>([]);
   
+  const [questionExamSyllabi, setQuestionExamSyllabi] = useState<Syllabus[]>([]);
+  const [showSyllabusRef, setShowSyllabusRef] = useState<boolean>(true);
+
+  // --- AI GENERATION STATE ---
+  const [aiPrompt, setAiPrompt] = useState<string>('');
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
+
+  // --- 5. DASHBOARD STATS STATE ---
+  const [totalSyllabiCount, setTotalSyllabiCount] = useState<number>(0);
+  const [totalQuestionsCount, setTotalQuestionsCount] = useState<number>(0);
+  
   const [newSetName, setNewSetName] = useState<string>('');
   const [questionTitle, setQuestionTitle] = useState<string>('');
   const [questionDesc, setQuestionDesc] = useState<string>('');
@@ -85,14 +101,67 @@ export const ESQ_Manage: React.FC = () => {
       setLoading(true);
       setError(null);
       const data = await examServices.getMyExams();
-      setExams(data);
-      if (data.length > 0) {
-        setSelectedExamForSyllabus(data[0].id);
-        setSelectedExamForGrades(data[0].id);
-        setSelectedExamForQuestions(data[0].id);
+      const examArray = Array.isArray(data) ? data : [];
+      setExams(examArray);
+      
+      if (examArray.length > 0) {
+        setSelectedExamForSyllabus(prev => (prev === '' ? examArray[0].id : prev));
+        setSelectedExamForGrades(prev => (prev === '' ? examArray[0].id : prev));
+        setSelectedExamForQuestions(prev => (prev === '' ? examArray[0].id : prev));
+
+        const syllabiTempMap: { [id: number]: string } = {};
+        const participantsTempMap: { [id: number]: number } = {};
+
+        for (const ex of examArray) {
+          try {
+            const syls = await syllabusServices.getSyllabusByExamId(ex.id);
+            if (Array.isArray(syls) && syls.length > 0) {
+              syllabiTempMap[ex.id] = syls.map(s => s.topicName || '').join(', ');
+            } else {
+              syllabiTempMap[ex.id] = 'No Syllabus Assigned';
+            }
+          } catch {
+            syllabiTempMap[ex.id] = 'No Syllabus Assigned';
+          }
+
+          // Fetch participant count for status evaluation
+          let participantCount = 0;
+          try {
+            const res = await axios.get(`/api/examparticipants/exam/${ex.id}`);
+            const d = res.data;
+            if (typeof d === 'number') {
+              participantCount = d;
+            } else if (Array.isArray(d)) {
+              participantCount = d.length;
+            } else if (d && typeof d === 'object') {
+              const list = d.data || d.items || d.participants || d.value;
+              participantCount = Array.isArray(list) ? list.length : (typeof d.count === 'number' ? d.count : 0);
+            }
+          } catch {
+            try {
+              const res2 = await axios.get(`/api/exams/${ex.id}/participants`);
+              const d2 = res2.data;
+              if (typeof d2 === 'number') {
+                participantCount = d2;
+              } else if (Array.isArray(d2)) {
+                participantCount = d2.length;
+              } else if (d2 && typeof d2 === 'object') {
+                const list2 = d2.data || d2.items || d2.participants || d2.value;
+                participantCount = Array.isArray(list2) ? list2.length : 0;
+              }
+            } catch {
+              participantCount = 0;
+            }
+          }
+          participantsTempMap[ex.id] = participantCount;
+        }
+
+        setExamSyllabiMap(syllabiTempMap);
+        setExamParticipantsMap(participantsTempMap);
       }
     } catch (err: any) {
       setError(err?.response?.data || 'Failed to load exams.');
+      setExams([]);
     } finally {
       setLoading(false);
     }
@@ -100,24 +169,115 @@ export const ESQ_Manage: React.FC = () => {
 
   useEffect(() => {
     fetchExams();
-    // Fetch system-wide standard grades on load
     gradeServices.getStandardGrades()
-      .then(data => setStandardGradesList(data))
+      .then(data => setStandardGradesList(Array.isArray(data) ? data : []))
       .catch(() => setStandardGradesList([]));
   }, []);
+
+  // Delete archived exam handler
+  const handleDeleteExam = async (examId: number) => {
+    if (!window.confirm('Are you sure you want to delete this archived exam?')) return;
+    try {
+      await axios.delete(`/api/exams/${examId}`);
+      setMessage('Archived exam deleted successfully.');
+      fetchExams();
+    } catch (err: any) {
+      setError(err?.response?.data || 'Failed to delete exam.');
+    }
+  };
+
+  // Edit active exam handler
+  const handleEditExam = (exam: Exam) => {
+    setExamForm({
+      name: exam.name || (exam as any).title || '',
+      description: exam.description || '',
+      startDate: exam.startDate ? new Date(exam.startDate).toISOString().slice(0, 16) : '',
+      endDate: exam.endDate ? new Date(exam.endDate).toISOString().slice(0, 16) : '',
+      resultPublishDate: exam.resultPublishDate ? new Date(exam.resultPublishDate).toISOString().slice(0, 16) : '',
+      allowGrading: exam.allowGrading ?? true,
+      maxMarks: exam.maxMarks ?? 100,
+      minimumMarksRequired: exam.minimumMarksRequired ?? 40,
+      status: exam.status ?? 1,
+    });
+    setViewMode('workspace');
+    setActiveTab('exams');
+  };
+
+  useEffect(() => {
+    const safeExamsList = Array.isArray(exams) ? exams : [];
+    if (!safeExamsList.length) {
+      setTotalSyllabiCount(0);
+      setTotalQuestionsCount(0);
+      return;
+    }
+
+    let isMounted = true;
+    const calculateFrontendTotals = async () => {
+      let syllabusSum = 0;
+      let questionSum = 0;
+
+      for (const ex of safeExamsList) {
+        try {
+          const syls = await syllabusServices.getSyllabusByExamId(ex.id);
+          if (Array.isArray(syls)) {
+            syllabusSum += syls.length;
+          }
+        } catch {}
+
+        try {
+          const setsData = await questionServices.getSetsByExam(ex.id);
+          if (Array.isArray(setsData)) {
+            for (const set of setsData) {
+              const questions = await questionServices.getQuestionsBySet(set.id);
+              if (Array.isArray(questions)) {
+                questionSum += questions.length;
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (isMounted) {
+        setTotalSyllabiCount(syllabusSum);
+        setTotalQuestionsCount(questionSum);
+      }
+    };
+
+    calculateFrontendTotals();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [exams]);
 
   useEffect(() => {
     if (!selectedExamForSyllabus) return;
     const fetchSyllabus = async () => {
       try {
         const data = await syllabusServices.getSyllabusByExamId(Number(selectedExamForSyllabus));
-        setSyllabusList(data);
+        setSyllabusList(Array.isArray(data) ? data : []);
       } catch (err) {
         setSyllabusList([]);
       }
     };
     fetchSyllabus();
   }, [selectedExamForSyllabus]);
+
+  useEffect(() => {
+    if (!selectedExamForQuestions) {
+      setQuestionExamSyllabi([]);
+      return;
+    }
+    const fetchQuestionSyllabi = async () => {
+      try {
+        const data = await syllabusServices.getSyllabusByExamId(Number(selectedExamForQuestions));
+        setQuestionExamSyllabi(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setQuestionExamSyllabi([]);
+      }
+    };
+    fetchQuestionSyllabi();
+  }, [selectedExamForQuestions]);
 
   const handleCreateSyllabus = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +291,13 @@ export const ESQ_Manage: React.FC = () => {
       setSyllabusForm({ examId: Number(selectedExamForSyllabus), topicName: '', description: '', maxMarks: 10, markValueType: 1, maxQuestions: 5, status: 1 });
       setIsSyllabusModalOpen(false);
       const updated = await syllabusServices.getSyllabusByExamId(Number(selectedExamForSyllabus));
-      setSyllabusList(updated);
+      setSyllabusList(Array.isArray(updated) ? updated : []);
+      
+      if (selectedExamForQuestions === selectedExamForSyllabus) {
+        setQuestionExamSyllabi(Array.isArray(updated) ? updated : []);
+      }
+      
+      fetchExams();
     } catch (err: any) {
       setError(err?.response?.data || 'Failed to create syllabus.');
     }
@@ -142,7 +308,7 @@ export const ESQ_Manage: React.FC = () => {
     const fetchGrades = async () => {
       try {
         const data = await gradeServices.getGradesByExamId(Number(selectedExamForGrades));
-        setGradesList(data);
+        setGradesList(Array.isArray(data) ? data : []);
       } catch (err) {
         setGradesList([]);
       }
@@ -156,9 +322,9 @@ export const ESQ_Manage: React.FC = () => {
 
     try {
       setError(null);
-      // Sending existing grades list combined with the new grade form as a batch
+      const safeGrades = Array.isArray(gradesList) ? gradesList : [];
       const updatedGradesPayload: SetGradesRequest[] = [
-        ...gradesList.map(g => ({
+        ...safeGrades.map(g => ({
           examId: g.examId,
           name: g.name,
           min: g.min,
@@ -180,7 +346,7 @@ export const ESQ_Manage: React.FC = () => {
       setMessage(res.message || 'Custom exam grades configured successfully.');
       setGradeForm({ name: 'A', min: 80, max: 100, cgpa: 4.0, isPassGrade: true });
       const updated = await gradeServices.getGradesByExamId(Number(selectedExamForGrades));
-      setGradesList(updated);
+      setGradesList(Array.isArray(updated) ? updated : []);
     } catch (err: any) {
       setError(err?.response?.data || 'Failed to configure grade boundaries.');
     }
@@ -191,11 +357,16 @@ export const ESQ_Manage: React.FC = () => {
     const fetchSets = async () => {
       try {
         const data = await questionServices.getSetsByExam(Number(selectedExamForQuestions));
-        setSets(data);
-        if (data.length > 0) setSelectedSetId(data[0].id);
-        else setSelectedSetId('');
+        const setsArray = Array.isArray(data) ? data : [];
+        setSets(setsArray);
+        if (setsArray.length > 0) {
+          setSelectedSetId(setsArray[0].id);
+        } else {
+          setSelectedSetId('');
+        }
       } catch (err) {
         setSets([]);
+        setSelectedSetId('');
       }
     };
     fetchSets();
@@ -206,7 +377,7 @@ export const ESQ_Manage: React.FC = () => {
     const fetchQuestions = async () => {
       try {
         const data = await questionServices.getQuestionsBySet(Number(selectedSetId));
-        setQuestionsList(data);
+        setQuestionsList(Array.isArray(data) ? data : []);
       } catch (err) {
         setQuestionsList([]);
       }
@@ -218,14 +389,32 @@ export const ESQ_Manage: React.FC = () => {
     e.preventDefault();
     try {
       setError(null);
-      const res = await examServices.createExam(examForm);
-      setMessage(res.message || 'Exam created successfully.');
-      setExamForm({ name: '', description: '', startDate: '', endDate: '', resultPublishDate: '', allowGrading: true, maxMarks: 100, minimumMarksRequired: 40, status: 1 });
-      setViewMode('workspace');
-      setActiveTab('exams');
+      const payload = {
+        ...examForm,
+        startDate: examForm.startDate ? new Date(examForm.startDate).toISOString() : '',
+        endDate: examForm.endDate ? new Date(examForm.endDate).toISOString() : '',
+        resultPublishDate: examForm.resultPublishDate ? new Date(examForm.resultPublishDate).toISOString() : null,
+      };
+
+      const res = await examServices.createExam(payload);
+      setMessage(res?.message || 'Exam saved successfully.');
+      setExamForm({
+        name: '',
+        description: '',
+        startDate: '',
+        endDate: '',
+        resultPublishDate: '',
+        allowGrading: true,
+        maxMarks: 100,
+        minimumMarksRequired: 40,
+        status: 1,
+      });
+      setViewMode('list');
       fetchExams();
     } catch (err: any) {
-      setError(err?.response?.data || 'Failed to create exam.');
+      console.error("Error creating exam:", err);
+      const errorMsg = err?.response?.data?.message || err?.response?.data || err?.message || 'Failed to save exam.';
+      setError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
     }
   };
 
@@ -239,9 +428,51 @@ export const ESQ_Manage: React.FC = () => {
       setMessage(res.message || 'Question set created.');
       setNewSetName('');
       const data = await questionServices.getSetsByExam(Number(selectedExamForQuestions));
-      setSets(data);
+      const setsArray = Array.isArray(data) ? data : [];
+      setSets(setsArray);
+      if (setsArray.length > 0) {
+        const newlyCreated = setsArray[setsArray.length - 1];
+        setSelectedSetId(newlyCreated.id);
+      }
     } catch (err: any) {
       setError(err?.response?.data || 'Failed to create question set.');
+    }
+  };
+
+  const handleAiGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedExamForQuestions || !selectedSetId) {
+      alert('Please select an Exam and a Question Set first.');
+      return;
+    }
+    if (!aiPrompt.trim()) {
+      alert('Please enter generation rules or prompt.');
+      return;
+    }
+
+    try {
+      setAiLoading(true);
+      setError(null);
+
+      const promptStr = `Generate questions for examId:${selectedExamForQuestions} and setId:${selectedSetId}, rules: ${aiPrompt}`;
+      
+      const response = await axios.post(`http://localhost:7165/api/generate-questions?q=${encodeURIComponent(promptStr)}`);
+      
+      if (response.data && response.data.success) {
+        setMessage('✨ AI questions generated and saved to database successfully!');
+        setAiPrompt('');
+        setIsAiSuccessModalOpen(true);
+        
+        const data = await questionServices.getQuestionsBySet(Number(selectedSetId));
+        setQuestionsList(Array.isArray(data) ? data : []);
+        fetchExams();
+      } else {
+        setError('AI generation completed with warnings.');
+      }
+    } catch (err: any) {
+      setError(err?.response?.data || err?.message || 'Failed to generate AI questions.');
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -299,14 +530,21 @@ export const ESQ_Manage: React.FC = () => {
       ]);
 
       const data = await questionServices.getQuestionsBySet(Number(selectedSetId));
-      setQuestionsList(data);
+      setQuestionsList(Array.isArray(data) ? data : []);
+      fetchExams();
     } catch (err: any) {
       setError(err?.response?.data || 'Failed to create question.');
     }
   };
 
-  const activeExamsCount = exams.filter(ex => ex.status === 1 || !ex.status).length;
-  const totalExamsCount = exams.length;
+  const safeExams = Array.isArray(exams) ? exams : [];
+  const safeSyllabusList = Array.isArray(syllabusList) ? syllabusList : [];
+  const safeGradesList = Array.isArray(gradesList) ? gradesList : [];
+  const safeSets = Array.isArray(sets) ? sets : [];
+  const safeQuestionsList = Array.isArray(questionsList) ? questionsList : [];
+
+  const activeExamsCount = safeExams.filter(ex => (examParticipantsMap[ex.id] || 0) >= 1).length;
+  const totalExamsCount = safeExams.length;
 
   return (
     <div className="manage-page">
@@ -315,86 +553,45 @@ export const ESQ_Manage: React.FC = () => {
       {message && <p className="manage-success">{message}</p>}
       {error && <p className="manage-error">{error}</p>}
 
+      {/* --- AI GENERATION SUCCESS POP-UP MODAL --- */}
+      {isAiSuccessModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ textAlign: 'center', padding: '30px', maxWidth: '420px' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '10px' }}>✨🎉</div>
+            <h3 style={{ color: '#375534', marginBottom: '10px' }}>AI Generation Success</h3>
+            <p style={{ fontSize: '1rem', color: '#2b2a28', marginBottom: '24px', lineHeight: '1.5' }}>
+              AI questions generated and saved to database successfully!
+            </p>
+            <button 
+              onClick={() => setIsAiSuccessModalOpen(false)} 
+              className="manage-btn manage-btn--primary"
+              style={{ padding: '10px 24px', width: '100%', fontSize: '1rem' }}
+            >
+              Awesome, View Questions
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* --- VIEW 1: EXAM LIST VIEW --- */}
       {viewMode === 'list' && (
-        <div className="manage-dashboard-grid">
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0 }}>All Exams</h3>
-              <button 
-                onClick={() => { setViewMode('workspace'); setActiveTab('exams'); }} 
-                className="manage-btn manage-btn--primary"
-                style={{ padding: '8px 20px', fontSize: '0.95rem' }}>
-                + ADD EXAM
-              </button>
-            </div>
-
-            {loading ? <p>Loading exams...</p> : (
-              <div className="manage-table-container">
-                <table className="exam-table">
-                  <thead>
-                    <tr>
-                      <th>Exam Title</th>
-                      <th>Syllabus</th>
-                      <th>Date</th>
-                      <th>Time</th>
-                      <th>Duration</th>
-                      <th>Total Questions</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {exams.map(ex => {
-                      const dateStr = ex.startDate ? new Date(ex.startDate).toLocaleDateString([], { dateStyle: 'medium' }) : 'N/A';
-                      const timeStr = ex.startDate ? new Date(ex.startDate).toLocaleTimeString([], { timeStyle: 'short' }) : 'N/A';
-                      return (
-                        <tr key={ex.id}>
-                          <td>
-                            <strong>{ex.name}</strong>
-                            {ex.description && <div style={{ fontSize: '0.85rem', color: '#6b6252' }}>{ex.description}</div>}
-                          </td>
-                          <td>Syllabus_v1.pdf</td>
-                          <td>{dateStr}</td>
-                          <td>{timeStr}</td>
-                          <td>2 hours</td>
-                          <td style={{ textAlign: 'center' }}>{ex.maxMarks ? Math.round(ex.maxMarks / 5) : 20}</td>
-                          <td>
-                            <span className="exam-status-badge active">Active</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {exams.length === 0 && (
-                      <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '20px' }}>No scheduled exams found. Click "+ ADD EXAM" to create one.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="dashboard-sidebar">
-            <div className="sidebar-widget">
+        <div style={{ width: '100%' }}>
+          {/* Two Small Cards Placed Up Above the Table */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+            <div className="sidebar-widget" style={{ margin: 0 }}>
               <h4>Quick Stats & Resources</h4>
               <ul>
                 <li><span>Active Exams: {activeExamsCount} (Total: {totalExamsCount}) ★</span></li>
-                <li><span>Pending Syllabuses: {syllabusList.length} ★</span></li>
-                <li><span>Question Bank Count: {questionsList.length * 15 + 300}</span></li>
+                <li><span>Total Syllabi: {totalSyllabiCount} ★</span></li>
+                <li><span>Question Bank Count: {totalQuestionsCount}</span></li>
               </ul>
             </div>
-
-            <div className="sidebar-widget">
-              <h4>Draft List</h4>
+            <div className="sidebar-widget" style={{ margin: 0 }}>
+              <h4>System Status</h4>
               <ul>
-                <li style={{ background: 'rgba(255,255,255,0.5)', padding: '10px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.9rem', color: '#2b2a28' }}>Draft Exam Configs ({totalExamsCount})</span>
-                  <span style={{ fontWeight: 'bold', cursor: 'pointer' }}>⋮</span>
-                </li>
                 <li style={{ background: 'rgba(255,255,255,0.3)', padding: '8px 10px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.9rem', color: '#6b6252' }}>System Status: Online</span>
-                  <span style={{ fontWeight: 'bold', cursor: 'pointer' }}>⋮</span>
+                  <span style={{ fontWeight: 'bold' }}>●</span>
                 </li>
               </ul>
               <button 
@@ -405,6 +602,131 @@ export const ESQ_Manage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ margin: 0 }}>All Exams</h3>
+            <button 
+              onClick={() => {
+                setExamForm({
+                  name: '',
+                  description: '',
+                  startDate: '',
+                  endDate: '',
+                  resultPublishDate: '',
+                  allowGrading: true,
+                  maxMarks: 100,
+                  minimumMarksRequired: 40,
+                  status: 1,
+                });
+                setViewMode('workspace'); 
+                setActiveTab('exams'); 
+              }} 
+              className="manage-btn manage-btn--primary"
+              style={{ padding: '8px 20px', fontSize: '0.95rem' }}>
+              + ADD EXAM
+            </button>
+          </div>
+
+          {loading ? <p>Loading exams...</p> : (
+            <div className="manage-table-container" style={{ width: '100%', overflowX: 'auto' }}>
+              <table className="exam-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Exam Title</th>
+                    <th>Syllabus</th>
+                    <th>Date Range</th>
+                    <th>Time Range</th>
+                    <th>Duration</th>
+                    <th>Total Marks</th>
+                    <th>Total Questions</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {safeExams.map(ex => {
+                    const startDateObj = ex.startDate ? new Date(ex.startDate) : null;
+                    const endDateObj = ex.endDate ? new Date(ex.endDate) : null;
+
+                    let dateRangeDisplay = 'N/A';
+                    if (startDateObj && endDateObj && !isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
+                      const startMonthName = startDateObj.toLocaleString('en-US', { month: 'short' });
+                      const endMonthName = endDateObj.toLocaleString('en-US', { month: 'short' });
+                      const startDay = startDateObj.getDate();
+                      const endDay = endDateObj.getDate();
+                      const startYear = startDateObj.getFullYear();
+                      const endYear = endDateObj.getFullYear();
+
+                      if (startMonthName === endMonthName && startYear === endYear) {
+                        dateRangeDisplay = startDay === endDay 
+                          ? `${startMonthName} ${startDay}, ${startYear}` 
+                          : `${startMonthName} ${startDay} – ${endDay}, ${startYear}`;
+                      } else {
+                        dateRangeDisplay = `${startMonthName} ${startDay}, ${startYear} – ${endMonthName} ${endDay}, ${endYear}`;
+                      }
+                    }
+
+                    const startTimeStr = startDateObj && !isNaN(startDateObj.getTime()) ? startDateObj.toLocaleTimeString([], { timeStyle: 'short' }) : '';
+                    const endTimeStr = endDateObj && !isNaN(endDateObj.getTime()) ? endDateObj.toLocaleTimeString([], { timeStyle: 'short' }) : '';
+                    const timeRangeDisplay = startTimeStr && endTimeStr ? `${startTimeStr} – ${endTimeStr}` : (startTimeStr || 'N/A');
+
+                    const totalMarks = ex.maxMarks ?? (ex as any).totalMarks ?? 100;
+                    const totalQuestions = (ex as any).totalQuestions ?? (ex as any).questionsCount ?? (ex.maxMarks ? Math.round(ex.maxMarks / 5) : 20);
+
+                    const syllabusTitle = examSyllabiMap[ex.id] || (ex as any).syllabusName || 'No Syllabus Assigned';
+                    
+                    // Strict Rule: Active ONLY if assigned participants >= 1
+                    const assignedCount = examParticipantsMap[ex.id] ?? 0;
+                    const isActive = assignedCount >= 1;
+                    const statusLabel = isActive ? 'Active' : 'Archived';
+                    const statusBadgeClass = isActive ? 'active' : 'archived';
+
+                    return (
+                      <tr key={ex.id}>
+                        <td>
+                          <strong>{ex.name || (ex as any).title}</strong>
+                          {ex.description && <div style={{ fontSize: '0.85rem', color: '#6b6252' }}>{ex.description}</div>}
+                        </td>
+                        <td>{syllabusTitle}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{dateRangeDisplay}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{timeRangeDisplay}</td>
+                        <td>{(ex as any).duration || '2 hours'}</td>
+                        <td>{totalMarks}</td>
+                        <td style={{ textAlign: 'center' }}>{totalQuestions}</td>
+                        <td>
+                          <span className={`exam-status-badge ${statusBadgeClass}`}>{statusLabel}</span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {isActive ? (
+                            <button 
+                              onClick={() => handleEditExam(ex)}
+                              title="Edit Active Exam"
+                              style={{ background: '#375534', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
+                            >
+                              Edit
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => handleDeleteExam(ex.id)}
+                              title="Delete Archived Exam"
+                              style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {safeExams.length === 0 && (
+                    <tr>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '20px' }}>No scheduled exams found. Click "+ ADD EXAM" to create one.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -483,7 +805,7 @@ export const ESQ_Manage: React.FC = () => {
               <div className="manage-field">
                 <label><strong>Select Exam: </strong></label>
                 <select value={selectedExamForSyllabus} onChange={e => setSelectedExamForSyllabus(Number(e.target.value))}>
-                  {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+                  {safeExams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
                 </select>
               </div>
 
@@ -497,7 +819,7 @@ export const ESQ_Manage: React.FC = () => {
               </div>
 
               <ul className="manage-list">
-                {syllabusList.map(s => (
+                {safeSyllabusList.map(s => (
                   <li key={s.id} className="manage-item">
                     <div>
                       <h4>{s.topicName}</h4>
@@ -506,7 +828,7 @@ export const ESQ_Manage: React.FC = () => {
                     </div>
                   </li>
                 ))}
-                {syllabusList.length === 0 && <p>No syllabus topics added yet. Click "+ Upload New Syllabus" to add one.</p>}
+                {safeSyllabusList.length === 0 && <p>No syllabus topics added yet. Click "+ Upload New Syllabus" to add one.</p>}
               </ul>
 
               {isSyllabusModalOpen && (
@@ -559,7 +881,7 @@ export const ESQ_Manage: React.FC = () => {
               <div className="manage-field">
                 <label><strong>Select Exam: </strong></label>
                 <select value={selectedExamForGrades} onChange={e => setSelectedExamForGrades(Number(e.target.value))}>
-                  {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+                  {safeExams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
                 </select>
               </div>
 
@@ -595,7 +917,7 @@ export const ESQ_Manage: React.FC = () => {
 
               <h3>Configured Grade Boundaries for Selected Exam</h3>
               <ul className="manage-list">
-                {gradesList.map((g, idx) => (
+                {safeGradesList.map((g, idx) => (
                   <li key={idx} className="manage-item">
                     <div>
                       <h4>{g.name} (CGPA: {g.cgpa}) {g.examId ? <span style={{fontSize: '0.75rem', color: '#0d6efd'}}>[Custom Rubric]</span> : <span style={{fontSize: '0.75rem', color: '#6c757d'}}>[Standard Rubric Fallback]</span>}</h4>
@@ -603,7 +925,7 @@ export const ESQ_Manage: React.FC = () => {
                     </div>
                   </li>
                 ))}
-                {gradesList.length === 0 && <p>No custom grades configured. Using system standard grades.</p>}
+                {safeGradesList.length === 0 && <p>No custom grades configured. Using system standard grades.</p>}
               </ul>
             </div>
           )}
@@ -613,8 +935,74 @@ export const ESQ_Manage: React.FC = () => {
               <div className="manage-field">
                 <label><strong>Select Exam: </strong></label>
                 <select value={selectedExamForQuestions} onChange={e => setSelectedExamForQuestions(Number(e.target.value))}>
-                  {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+                  {safeExams.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
                 </select>
+              </div>
+
+              {/* --- SYLLABUS REFERENCE GUIDE FOR FACULTY --- */}
+              <div className="manage-card" style={{ background: 'rgba(245, 240, 230, 0.7)', marginBottom: '20px', border: '1px solid rgba(120,90,30,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowSyllabusRef(!showSyllabusRef)}>
+                  <h4 style={{ margin: 0, color: '#375534' }}>📚 Syllabus Reference Guide (For Question Authoring)</h4>
+                  <button type="button" className="manage-btn manage-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
+                    {showSyllabusRef ? 'Hide Reference' : 'Show Reference'}
+                  </button>
+                </div>
+
+                {showSyllabusRef && (
+                  <div style={{ marginTop: '12px', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px' }}>
+                    {questionExamSyllabi.length > 0 ? (
+                      <ul style={{ margin: 0, paddingLeft: '20px', display: 'grid', gap: '6px' }}>
+                        {questionExamSyllabi.map((s: any, idx: number) => (
+                          <li key={idx} style={{ fontSize: '0.9rem', color: '#2b2a28' }}>
+                            <strong>{s.topicName || s.title}:</strong> {s.description || 'No details provided.'} (Max Marks: {s.maxMarks})
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p style={{ margin: 0, fontStyle: 'italic', color: '#6b6252', fontSize: '0.9rem' }}>
+                        No syllabus topics linked to this exam yet. Faculty can author questions based on course guidelines.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* --- AI AGENT QUESTION GENERATOR CARD --- */}
+              <div className="manage-card" style={{ background: 'linear-gradient(135deg, rgba(235, 245, 238, 0.85), rgba(245, 240, 230, 0.85))', border: '1px solid rgba(55, 85, 52, 0.3)', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h3 style={{ margin: 0, color: '#375534' }}>✨ AI Agent Question Generator</h3>
+                  <span style={{ fontSize: '0.8rem', color: '#375534', fontWeight: 600 }}>Gemini MCP Toolkit</span>
+                </div>
+                <p style={{ fontSize: '0.9rem', color: '#6b6252', marginBottom: '12px' }}>
+                  Provide rules and prompt instructions to let Gemini automatically fetch exam details, review the syllabus, and generate questions directly into your selected Question Set.
+                </p>
+
+                <form onSubmit={handleAiGenerate}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Generation Prompt & Rules</label>
+                    <textarea 
+                      placeholder="e.g., 2 MCQ questions with 3 options and 1 descriptive question on computer networks."
+                      value={aiPrompt}
+                      onChange={e => setAiPrompt(e.target.value)}
+                      rows={2}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.15)', background: 'rgba(255,255,255,0.8)' }}
+                      required
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#375534' }}>
+                      Target: <strong>Exam #{selectedExamForQuestions || 'None'}</strong> | <strong>Set #{selectedSetId || 'None'}</strong>
+                    </span>
+                    <button 
+                      type="submit" 
+                      className="manage-btn manage-btn--primary" 
+                      disabled={aiLoading || !selectedSetId}
+                      style={{ padding: '8px 20px' }}
+                    >
+                      {aiLoading ? 'Generating with AI...' : '✨ Generate & Save Questions'}
+                    </button>
+                  </div>
+                </form>
               </div>
 
               <div className="manage-card">
@@ -624,19 +1012,22 @@ export const ESQ_Manage: React.FC = () => {
                   <button type="submit" className="manage-btn manage-btn--success">Create Set</button>
                 </form>
 
-                {sets.length > 0 && (
+                {safeSets.length > 0 && (
                   <div style={{ marginBottom: '10px' }}>
                     <label><strong>Select Question Set: </strong></label>
                     <select value={selectedSetId} onChange={e => setSelectedSetId(Number(e.target.value))}>
-                      {sets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {safeSets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
                 )}
               </div>
 
-              {selectedSetId && (
-                <div className="manage-card">
-                  <h3>Manual Question Authoring</h3>
+              {/* Manual Question Authoring Form */}
+              <div className="manage-card">
+                <h3>Manual Question Authoring</h3>
+                {!selectedSetId ? (
+                  <p style={{ color: '#6b6252', fontStyle: 'italic' }}>Please create or select a question set above to start adding questions.</p>
+                ) : (
                   <form onSubmit={handleCreateQuestion} className="manage-form">
                     <div>
                       <label>Question Title</label>
@@ -667,31 +1058,26 @@ export const ESQ_Manage: React.FC = () => {
                       <div style={{ margin: '15px 0', padding: '16px', background: 'rgba(255,255,255,0.45)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.7)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                           <label style={{ fontWeight: 600 }}>Answer Options & Correct Answer Designation</label>
-                          <button type="button" onClick={handleAddOptionRow} className="manage-btn manage-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
-                            + Add Option
-                          </button>
+                          <button type="button" onClick={handleAddOptionRow} className="manage-btn manage-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.85rem' }}>+ Add Option</button>
                         </div>
-                        
                         {questionOptions.map((opt, idx) => (
                           <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
                             <input 
                               type="text" 
                               placeholder={`Option ${idx + 1} text`} 
                               value={opt.title} 
-                              onChange={e => handleOptionChange(idx, 'title', e.target.value)}
-                              style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.9)' }}
+                              onChange={e => handleOptionChange(idx, 'title', e.target.value)} 
+                              style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.8)' }}
                             />
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.9rem', cursor: 'pointer' }}>
                               <input 
                                 type="checkbox" 
                                 checked={opt.isCorrect} 
-                                onChange={e => handleOptionChange(idx, 'isCorrect', e.target.checked)}
+                                onChange={e => handleOptionChange(idx, 'isCorrect', e.target.checked)} 
                               /> Correct
                             </label>
                             {questionOptions.length > 2 && (
-                              <button type="button" onClick={() => handleRemoveOptionRow(idx)} style={{ background: 'transparent', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem' }}>
-                                &times;
-                              </button>
+                              <button type="button" onClick={() => handleRemoveOptionRow(idx)} className="manage-btn manage-btn--danger" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>&times;</button>
                             )}
                           </div>
                         ))}
@@ -699,34 +1085,69 @@ export const ESQ_Manage: React.FC = () => {
                     )}
 
                     <div>
-                      <label>Optional Image Attachment</label>
+                      <label>Attach Image (optional)</label>
                       <input type="file" onChange={e => setQuestionImage(e.target.files ? e.target.files[0] : null)} />
                     </div>
-                    <button type="submit" className="manage-btn manage-btn--primary">Add Question to Set</button>
-                  </form>
 
-                  <h4 style={{ marginTop: '25px', marginBottom: '15px' }}>Questions in Selected Set</h4>
-                  <ul className="manage-list">
-                    {questionsList.map((item) => (
-                      <li key={item.question.id} className="manage-item manage-item--stack">
-                        <div className="manage-item-head">
-                          <h4>{item.question.title}</h4>
-                          <small>{item.question.marks} Marks</small>
-                        </div>
-                        {item.options && item.options.length > 0 &&/null/ && (
-                          <ul className="manage-options">
-                            {item.options.map((o) => (
-                              <li key={o.id} className={o.isCorrect ? 'option-correct' : undefined}>
-                                {o.title} {o.isCorrect ? '(Correct)' : ''}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                    <button type="submit" className="manage-btn manage-btn--primary" style={{ marginTop: '15px' }}>Save Question</button>
+                  </form>
+                )}
+              </div>
+
+              {/* Created Questions Preview List */}
+              <div className="manage-card" style={{ marginTop: '20px' }}>
+                <h3>Questions in Selected Set ({safeQuestionsList.length})</h3>
+                <ul className="manage-list">
+                  {safeQuestionsList.length > 0 ? (
+                    safeQuestionsList.map((q: any, idx: number) => {
+                      if (!q) return null;
+
+                      const target = q.question || q.questionDetails || q;
+
+                      const displayTitle = target.title || target.Title || target.questionText || target.QuestionText || target.name || target.Name || target.question || target.Question || target.text || target.Text || `Question ${idx + 1}`;
+                      const displayMarks = target.marks ?? target.Marks ?? target.mark ?? target.Mark ?? target.score ?? target.Score ?? target.points ?? target.Points ?? target.maxMarks ?? target.MaxMarks ?? q.marks ?? q.Marks ?? 5;
+                      const displayDesc = target.description || target.Description || target.details || target.Details || q.description || q.Description || '';
+                      
+                      let rawOptions = target.options || target.Options || q.options || q.Options || [];
+                      if (typeof rawOptions === 'string') {
+                        try { rawOptions = JSON.parse(rawOptions); } catch { rawOptions = []; }
+                      }
+                      const options = Array.isArray(rawOptions) ? rawOptions : [];
+
+                      return (
+                        <li key={q.id || q.Id || target.id || idx} className="manage-item" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.6)', marginBottom: '12px', borderRadius: '10px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                            <strong style={{ fontSize: '1rem', color: '#2b2a28' }}>Q{idx + 1}: {displayTitle}</strong>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#375534', background: 'rgba(55,85,52,0.1)', padding: '2px 8px', borderRadius: '6px' }}>{displayMarks} Marks</span>
+                          </div>
+                          {displayDesc && (
+                            <p style={{ fontSize: '0.9rem', color: '#6b6252', margin: '4px 0 8px 0' }}>{displayDesc}</p>
+                          )}
+                          {options.length > 0 && (
+                            <div style={{ marginTop: '8px', paddingLeft: '12px', borderLeft: '2px solid rgba(55,85,52,0.3)' }}>
+                              <div style={{ fontSize: '0.80rem', fontWeight: 600, color: '#375534', marginBottom: '4px' }}>Options:</div>
+                              <ul style={{ margin: 0, paddingLeft: '16px', display: 'grid', gap: '4px' }}>
+                                {options.map((opt: any, optIdx: number) => {
+                                  if (!opt) return null;
+                                  const optTitle = typeof opt === 'string' ? opt : (opt.title || opt.Title || opt.text || opt.Text || opt.name || opt.Name || '');
+                                  const isCorrect = typeof opt === 'object' ? (opt.isCorrect ?? opt.IsCorrect ?? false) : false;
+                                  return (
+                                    <li key={opt.id || opt.Id || optIdx} style={{ fontSize: '0.85rem', color: isCorrect ? '#2e7d32' : '#2b2a28', fontWeight: isCorrect ? 'bold' : 'normal' }}>
+                                      {String.fromCharCode(65 + optIdx)}. {optTitle} {isCorrect && '✓ (Correct)'}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })
+                  ) : (
+                    <p style={{ fontStyle: 'italic', color: '#6b6252' }}>No questions added to this set yet.</p>
+                  )}
+                </ul>
+              </div>
             </div>
           )}
         </div>

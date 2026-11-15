@@ -1,271 +1,302 @@
-import React, { useState, useEffect } from 'react';
-import axios from '../../interceptor';
-import { SubmissionReviewResponse, QuestionReviewItem, GradeQuestionItem } from '../../Models/GradingModel';
+import React, { useEffect, useState } from 'react';
+import { examServices } from '../../Services/examServices';
+import { GradingServices } from '../../Services/gradingServices';
 import '../../Styles/Grading.css';
 
 export const Grading: React.FC = () => {
-  const [examId, setExamId] = useState<number>(1);
-  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
-  const [selectedParticipantId, setSelectedParticipantId] = useState<number | null>(null);
-  const [submissionDetails, setSubmissionDetails] = useState<SubmissionReviewResponse | null>(null);
-  const [evaluations, setEvaluations] = useState<{ [questionId: number]: { marks: number; reason: string } }>({});
-  const [loading, setLoading] = useState<boolean>(false);
-  const [message, setMessage] = useState<string>('');
+  const [exams, setExams] = useState<any[]>([]);
+  const [selectedExamId, setSelectedExamId] = useState<number | ''>('');
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  
+  // Track evaluated/completed participant IDs locally
+  const [completedParticipantIds, setCompletedParticipantIds] = useState<number[]>([]);
+
+  const [loadingExams, setLoadingExams] = useState<boolean>(false);
+  const [loadingSubmissions, setLoadingSubmissions] = useState<boolean>(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Active grading workspace state
+  const [activeParticipantId, setActiveParticipantId] = useState<number | null>(null);
+  const [gradingPaper, setGradingPaper] = useState<any | null>(null);
+  const [marksMap, setMarksMap] = useState<{ [questionId: number]: { marks: number; reason: string } }>({});
 
   useEffect(() => {
-    if (examId > 0) {
-      loadPendingSubmissions(examId);
-    }
-  }, [examId]);
-
-  const loadPendingSubmissions = async (targetExamId: number) => {
-    try {
-      setLoading(true);
-      setMessage('');
-      const response = await axios.get<any[]>(`/Grading/pending/exam/${targetExamId}`);
-      setPendingSubmissions(response.data || []);
-    } catch (err: any) {
-      setMessage(`Error loading submissions: ${err.response?.data || err.message}`);
-      setPendingSubmissions([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSelectParticipant = async (participantId: number) => {
-    try {
-      setLoading(true);
-      setMessage('');
-      setSelectedParticipantId(participantId);
-      const response = await axios.get<SubmissionReviewResponse>(`/Grading/submission/${participantId}`);
-      setSubmissionDetails(response.data);
-
-      const initialEvals: { [key: number]: { marks: number; reason: string } } = {};
-      if (response.data && response.data.questions) {
-        response.data.questions.forEach((q: QuestionReviewItem) => {
-          initialEvals[q.questionId] = {
-            marks: q.awardedMarks ?? 0,
-            reason: q.reasonOfMarking ?? ''
-          };
-        });
+    const fetchFacultyExams = async () => {
+      try {
+        setLoadingExams(true);
+        const data = await examServices.getMyExams();
+        const examArray = Array.isArray(data) ? data : [];
+        setExams(examArray);
+        if (examArray.length > 0) {
+          setSelectedExamId(examArray[0].id);
+        }
+      } catch (err: any) {
+        setError('Failed to load faculty exams.');
+      } finally {
+        setLoadingExams(false);
       }
-      setEvaluations(initialEvals);
+    };
+    fetchFacultyExams();
+  }, []);
+
+  const handleLoadSubmissions = async () => {
+    if (!selectedExamId) return;
+    try {
+      setLoadingSubmissions(true);
+      setError(null);
+      setMessage(null);
+      const data = await GradingServices.getPendingSubmissions(Number(selectedExamId));
+      const subsArray = Array.isArray(data) ? data : [];
+      setSubmissions(subsArray);
     } catch (err: any) {
-      setMessage(`Error loading submission details: ${err.response?.data || err.message}`);
+      setError(err?.response?.data || 'Failed to load submissions for grading.');
+      setSubmissions([]);
     } finally {
-      setLoading(false);
+      setLoadingSubmissions(false);
     }
   };
 
-  const handleMarkChange = (questionId: number, marks: number, maxMarks: number) => {
-    const validatedMarks = Math.max(0, Math.min(marks, maxMarks));
-    setEvaluations(prev => ({
+  // Filter out completed submissions from the pending table list
+  const activePendingSubmissions = submissions.filter(sub => {
+    const pId = sub.participantId || sub.ParticipantId;
+    return !completedParticipantIds.includes(pId);
+  });
+
+  // Dynamic counts based on loaded submissions vs completed marking
+  const totalLoadedCount = submissions.length;
+  const completedCount = completedParticipantIds.length;
+  const pendingCount = Math.max(0, totalLoadedCount - completedCount);
+
+  const handleOpenGradingWorkspace = async (participantId: number) => {
+    try {
+      setError(null);
+      setActiveParticipantId(participantId);
+      const paper = await GradingServices.getSubmissionForGrading(participantId);
+      setGradingPaper(paper);
+
+      // Pre-fill marks map with existing scores if any
+      const initialMap: { [qId: number]: { marks: number; reason: string } } = {};
+      const questionsList = paper?.questions || (paper as any)?.Questions || [];
+      questionsList.forEach((q: any) => {
+        const qId = q.questionId || q.Id;
+        initialMap[qId] = {
+          marks: q.awardedMarks ?? q.AwardedMarks ?? 0,
+          reason: q.reasonOfMarking || q.ReasonOfMarking || ''
+        };
+      });
+      setMarksMap(initialMap);
+    } catch (err: any) {
+      setError(err?.response?.data || 'Failed to load participant answer sheet.');
+    }
+  };
+
+  const handleMarkChange = (questionId: number, field: 'marks' | 'reason', value: number | string) => {
+    setMarksMap(prev => ({
       ...prev,
       [questionId]: {
-        ...prev[questionId],
-        marks: validatedMarks
+        marks: field === 'marks' ? Number(value) : (prev[questionId]?.marks || 0),
+        reason: field === 'reason' ? String(value) : (prev[questionId]?.reason || '')
       }
     }));
   };
 
-  const handleReasonChange = (questionId: number, reason: string) => {
-    setEvaluations(prev => ({
-      ...prev,
-      [questionId]: {
-        ...prev[questionId],
-        reason
-      }
-    }));
-  };
-
-  const handleSaveEvaluation = async () => {
-    if (!selectedParticipantId) return;
+  const handleSaveEvaluation = async (participantId: number) => {
     try {
-      setLoading(true);
-      setMessage('');
-      const payloadItems: GradeQuestionItem[] = Object.keys(evaluations).map(qId => ({
+      setError(null);
+      const evaluations = Object.keys(marksMap).map(qId => ({
         questionId: Number(qId),
-        marks: evaluations[Number(qId)].marks,
-        reasonOfMarking: evaluations[Number(qId)].reason
+        awardedMarks: marksMap[Number(qId)].marks,
+        reasonOfMarking: marksMap[Number(qId)].reason
       }));
 
-      await axios.post('/Grading/save-evaluation', {
-        participantId: selectedParticipantId,
-        evaluations: payloadItems
-      });
-      setMessage('Evaluation saved successfully as draft.');
+      const payload = {
+        participantId: participantId,
+        evaluations: evaluations
+      };
+
+      const res = await GradingServices.saveEvaluation(payload as any);
+      setMessage(res?.message || 'Marks saved successfully.');
+
+      // Mark as completed and close workspace
+      if (!completedParticipantIds.includes(participantId)) {
+        setCompletedParticipantIds(prev => [...prev, participantId]);
+      }
+      setActiveParticipantId(null);
     } catch (err: any) {
-      setMessage(`Error saving evaluation: ${err.response?.data || err.message}`);
-    } finally {
-      setLoading(false);
+      setError(err?.response?.data || 'Failed to save evaluation marks.');
     }
   };
 
-  const handleFinalizeAndPublish = async () => {
-    if (!selectedParticipantId) return;
+  const handleFinalizeAndPublish = async (participantId: number) => {
+    if (!window.confirm('Are you sure you want to finalize and publish results for this student?')) return;
     try {
-      setLoading(true);
-      setMessage('');
-      const payloadItems: GradeQuestionItem[] = Object.keys(evaluations).map(qId => ({
-        questionId: Number(qId),
-        marks: evaluations[Number(qId)].marks,
-        reasonOfMarking: evaluations[Number(qId)].reason
-      }));
-
-      await axios.post('/Grading/save-evaluation', {
-        participantId: selectedParticipantId,
-        evaluations: payloadItems
-      });
-
-      const response = await axios.post(`/Grading/finalize/${selectedParticipantId}`);
-      const resData = response.data;
-      setMessage(`Result published successfully! Grade: ${resData.grade} | Total: ${resData.totalMarks}/${resData.maxMarks} (${resData.percentage}%)`);
+      setError(null);
+      const res = await GradingServices.finalizeAndPublishResult(participantId);
+      setMessage(res?.message || 'Result finalized and published successfully.');
       
-      loadPendingSubmissions(examId);
+      // Mark as completed and close workspace
+      if (!completedParticipantIds.includes(participantId)) {
+        setCompletedParticipantIds(prev => [...prev, participantId]);
+      }
+      setActiveParticipantId(null);
     } catch (err: any) {
-      setMessage(`Error publishing result: ${err.response?.data || err.message}`);
-    } finally {
-      setLoading(false);
+      setError(err?.response?.data || 'Failed to publish result.');
     }
   };
 
   return (
-    <div className="grading-page-container">
-      <div className="container-fluid py-4">
-        <h2 className="text-white mb-4">Faculty Grading & Evaluation Portal</h2>
-        
-        <div className="row my-3 align-items-center">
-          <div className="col-auto">
-            <label htmlFor="examIdInput" className="col-form-label text-white"><strong>Enter Exam ID:</strong></label>
+    <div className="manage-page">
+      <h2>Faculty Grading & Evaluation Portal</h2>
+
+      {message && <p className="manage-success">{message}</p>}
+      {error && <p className="manage-error">{error}</p>}
+
+      {/* Load Exam Submissions Section */}
+      <div className="manage-card" style={{ marginBottom: '20px' }}>
+        <h3>Load Exam Submissions</h3>
+        <div className="manage-row" style={{ alignItems: 'flex-end', gap: '15px' }}>
+          <div style={{ flex: 1 }}>
+            <label><strong>Select Exam:</strong></label>
+            <select 
+              value={selectedExamId} 
+              onChange={e => setSelectedExamId(Number(e.target.value))}
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', marginTop: '5px' }}
+            >
+              {exams.map(ex => (
+                <option key={ex.id} value={ex.id}>{ex.name} (ID: {ex.id})</option>
+              ))}
+            </select>
           </div>
-          <div className="col-auto">
-            <input
-              id="examIdInput"
-              type="number"
-              className="form-control grading-input"
-              value={examId}
-              onChange={(e) => setExamId(parseInt(e.target.value) || 1)}
-            />
-          </div>
-          <div className="col-auto">
-            <button className="btn btn-primary" onClick={() => loadPendingSubmissions(examId)}>
-              Load Submissions
-            </button>
-          </div>
-        </div>
-
-        {message && <div className="alert alert-info my-2">{message}</div>}
-        {loading && <div className="text-light my-2">Loading data...</div>}
-
-        <div className="row mt-4">
-          <div className="col-md-4">
-            <h4 className="text-white">Pending Submissions</h4>
-            {pendingSubmissions.length === 0 ? (
-              <p className="text-light opacity-75">No pending submissions found for Exam ID {examId}.</p>
-            ) : (
-              <ul className="list-group">
-                {pendingSubmissions.map((sub) => (
-                  <li
-                    key={sub.participantId}
-                    className={`list-group-item grading-list-item ${selectedParticipantId === sub.participantId ? 'active' : ''}`}
-                    onClick={() => handleSelectParticipant(sub.participantId)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <strong>{sub.studentName}</strong> ({sub.studentEmail})<br />
-                    <small>Set: {sub.setName} | Status: {sub.resultStatus === 1 ? 'Completed' : 'Pending'}</small>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="col-md-8">
-            {submissionDetails ? (
-              <div className="grading-card p-4 shadow-lg">
-                <h4>Reviewing Student: {submissionDetails.studentName}</h4>
-                <p className="text-light opacity-75 mb-2">
-                  Exam: <strong>{submissionDetails.examName}</strong> | Max Marks: {submissionDetails.examMaxMarks}
-                </p>
-
-                {submissionDetails.pdfAnswerSheetURL && (
-                  <div className="mb-3">
-                    <a
-                      href={submissionDetails.pdfAnswerSheetURL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-sm btn-outline-light"
-                    >
-                      📄 View Uploaded PDF Answer Sheet
-                    </a>
-                  </div>
-                )}
-
-                <hr className="border-light" />
-
-                {submissionDetails.questions && submissionDetails.questions.map((q: QuestionReviewItem, index: number) => (
-                  <div key={q.questionId} className="mb-4 p-3 rounded grading-card">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <h5 className="mb-1 text-white">Q{index + 1}: {q.questionTitle}</h5>
-                      <span className="badge bg-secondary">Max Marks: {q.maxMarks}</span>
-                    </div>
-                    <p className="mb-2 text-light">{q.questionDescription}</p>
-
-                    <div className="grading-response-box mb-3">
-                      <strong>Student Response:</strong>
-                      {q.selectedOptionTitle ? (
-                        <div className="mt-1">
-                          Selected Option: <code>{q.selectedOptionTitle}</code>{' '}
-                          {q.isOptionCorrect ? <span className="text-success">✅ Correct</span> : <span className="text-danger">❌ Incorrect</span>}
-                        </div>
-                      ) : (
-                        <div className="mt-1">{q.answerDescription || <em>No text response provided.</em>}</div>
-                      )}
-                    </div>
-
-                    <div className="row g-2 align-items-center">
-                      <div className="col-md-4">
-                        <label className="form-label small text-white">Awarded Marks</label>
-                        <input
-                          type="number"
-                          className="form-control form-control-sm grading-input"
-                          max={q.maxMarks}
-                          min={0}
-                          step="0.5"
-                          value={evaluations[q.questionId]?.marks ?? 0}
-                          onChange={(e) => handleMarkChange(q.questionId, parseFloat(e.target.value) || 0, q.maxMarks)}
-                        />
-                      </div>
-                      <div className="col-md-8">
-                        <label className="form-label small text-white">Feedback / Reason</label>
-                        <input
-                          type="text"
-                          className="form-control form-control-sm grading-input"
-                          value={evaluations[q.questionId]?.reason ?? ''}
-                          onChange={(e) => handleReasonChange(q.questionId, e.target.value)}
-                          placeholder="Enter feedback or grading note..."
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <div className="d-flex gap-2 mt-3">
-                  <button className="btn btn-outline-light" onClick={handleSaveEvaluation}>
-                    Save Draft
-                  </button>
-                  <button className="btn btn-success" onClick={handleFinalizeAndPublish}>
-                    Finalize & Publish Result
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grading-card p-5 text-center text-light opacity-75">
-                Select a student submission from the left panel to begin reviewing and grading.
-              </div>
-            )}
-          </div>
+          <button 
+            onClick={handleLoadSubmissions} 
+            className="manage-btn manage-btn--primary"
+            style={{ padding: '11px 22px' }}
+          >
+            {loadingSubmissions ? 'Loading...' : 'Load Submissions'}
+          </button>
         </div>
       </div>
+
+      {/* Evaluation Status Summary Counter Banner */}
+      {submissions.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px' }}>
+          <div style={{ background: 'rgba(255, 243, 205, 0.7)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.3)' }}>
+            <span style={{ fontSize: '0.85rem', color: '#856404', display: 'block' }}>Pending Mark Evaluations</span>
+            <strong style={{ fontSize: '1.4rem', color: '#856404' }}>{pendingCount} Submissions</strong>
+          </div>
+          <div style={{ background: 'rgba(212, 237, 218, 0.7)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(40, 167, 69, 0.3)' }}>
+            <span style={{ fontSize: '0.85rem', color: '#155724', display: 'block' }}>Completed / Evaluated</span>
+            <strong style={{ fontSize: '1.4rem', color: '#155724' }}>{completedCount} Submissions</strong>
+          </div>
+        </div>
+      )}
+
+      {/* Submissions List Section */}
+      <div className="manage-card">
+        <h3>Pending Submissions & Answer Sheets</h3>
+        {activePendingSubmissions.length === 0 ? (
+          <p style={{ fontStyle: 'italic', color: '#6b6252', padding: '10px 0' }}>
+            {submissions.length > 0 ? 'All loaded submissions have been evaluated!' : (loadingSubmissions ? 'Fetching candidate answers...' : 'Click "Load Submissions" to view participant answer sheets from the database.')}
+          </p>
+        ) : (
+          <ul className="manage-list">
+            {activePendingSubmissions.map((sub: any) => {
+              const pId = sub.participantId || sub.ParticipantId;
+              const sName = sub.studentName || sub.StudentName || `Student #${pId}`;
+              const sEmail = sub.studentEmail || sub.StudentEmail || '';
+              const subStatus = sub.statusName || sub.StatusName || 'Pending Evaluation';
+
+              return (
+                <li key={pId} className="manage-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: 'rgba(255,255,255,0.6)', marginBottom: '10px', borderRadius: '10px' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 4px 0' }}>{sName}</h4>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b6252' }}>{sEmail} | Status: <strong>{subStatus}</strong></p>
+                  </div>
+                  <button 
+                    onClick={() => handleOpenGradingWorkspace(pId)} 
+                    className="manage-btn manage-btn--success"
+                    style={{ padding: '8px 16px', fontSize: '0.9rem' }}
+                  >
+                    Evaluate Answer Sheet &rarr;
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Active Grading Workspace Modal / Drawer */}
+      {activeParticipantId !== null && gradingPaper && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3>Evaluation Workspace: {gradingPaper.studentName || gradingPaper.StudentName}</h3>
+              <button onClick={() => setActiveParticipantId(null)} className="modal-close-btn">&times;</button>
+            </div>
+
+            <div style={{ display: 'grid', gap: '15px' }}>
+              {(gradingPaper.questions || gradingPaper.Questions || []).map((q: any, idx: number) => {
+                const qId = q.questionId || q.Id;
+                const maxMarks = q.maxMarks || q.MaxMarks || 5;
+                const studentAns = q.studentAnswer || q.StudentAnswer || 'No answer provided.';
+
+                return (
+                  <div key={qId} style={{ background: 'rgba(255,255,255,0.5)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.8)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <strong>Q{idx + 1}: {q.title || q.Title}</strong>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#375534' }}>Max Marks: {maxMarks}</span>
+                    </div>
+                    <p style={{ fontSize: '0.9rem', color: '#444', background: 'rgba(0,0,0,0.03)', padding: '10px', borderRadius: '8px' }}>
+                      <strong>Student Answer:</strong> {studentAns}
+                    </p>
+
+                    <div className="manage-row" style={{ marginTop: '10px', gap: '10px' }}>
+                      <div style={{ width: '120px' }}>
+                        <label style={{ fontSize: '0.8rem' }}>Awarded Marks</label>
+                        <input 
+                          type="number" 
+                          max={maxMarks}
+                          min={0}
+                          value={marksMap[qId]?.marks ?? 0}
+                          onChange={e => handleMarkChange(qId, 'marks', e.target.value)}
+                          style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid #ccc' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.8rem' }}>Faculty Feedback / Reason</label>
+                        <input 
+                          type="text" 
+                          placeholder="Provide short feedback or justification..."
+                          value={marksMap[qId]?.reason ?? ''}
+                          onChange={e => handleMarkChange(qId, 'reason', e.target.value)}
+                          style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid #ccc' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                onClick={() => handleSaveEvaluation(activeParticipantId)} 
+                className="manage-btn manage-btn--secondary"
+              >
+                Save Draft Marks
+              </button>
+              <button 
+                onClick={() => handleFinalizeAndPublish(activeParticipantId)} 
+                className="manage-btn manage-btn--primary"
+              >
+                Finalize & Publish Result
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

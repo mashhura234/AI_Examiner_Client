@@ -11,7 +11,7 @@ import type {
 } from "../Models/assessmentPortalModel";
 
 export const assessmentPortalServices = {
-  // User Filtering & Search (utilizing UserFilter & UserDto)[cite: 31, 32]
+  // User Filtering & Search (utilizing UserFilter & UserDto)
   getUsers: async (filter: UserFilter): Promise<UserDto[]> => {
     const response = await api.get<UserDto[]>("/Users", {
       params: {
@@ -62,6 +62,35 @@ export const assessmentPortalServices = {
 
   submitExam: async (participantId: number): Promise<{ message: string }> => {
     const response = await api.post<{ message: string }>(`/Answers/submit/${participantId}`);
+    return response.data;
+  },
+  
+  getMyResult: async (participantId: number): Promise<any> => {
+    const response = await api.get<any>(`/Participants/result/${participantId}`);
+    return response.data;
+  },
+
+  // --- Grading & Evaluation Endpoints (Connected to GradingController) ---
+  getPendingSubmissions: async (examId: number): Promise<any[]> => {
+    const response = await api.get<any[]>(`/Grading/pending/exam/${examId}`);
+    return response.data;
+  },
+
+  getSubmissionForGrading: async (participantId: number): Promise<any> => {
+    const response = await api.get<any>(`/Grading/submission/${participantId}`);
+    return response.data;
+  },
+
+  saveEvaluation: async (dto: { 
+    participantId: number; 
+    evaluations: { questionId: number; marks: number; reasonOfMarking: string }[] 
+  }): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>("/Grading/save-evaluation", dto);
+    return response.data;
+  },
+
+  finalizeResult: async (participantId: number): Promise<any> => {
+    const response = await api.post<any>(`/Grading/finalize/${participantId}`);
     return response.data;
   },
 };

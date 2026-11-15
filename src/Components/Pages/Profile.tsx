@@ -20,13 +20,22 @@ export const Profile: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Load profile data on mount
+  // Load profile data on mount and sync local storage profile image backup
   useEffect(() => {
     const loadUserData = async () => {
       try {
         setLoading(true);
         const currentUser = await AuthService.GetProfile();
+        const localProfileImage = localStorage.getItem('user_profile_image');
+
         if (currentUser) {
+          if (localProfileImage) {
+            currentUser.profileImageUrl = localProfileImage;
+            currentUser.profilePicture = localProfileImage;
+          } else if (currentUser.profileImageUrl?.startsWith('/uploads')) {
+            // Ignore server-relative path if file doesn't exist on disk
+            currentUser.profileImageUrl = '';
+          }
           setProfile(currentUser);
           setEditForm(currentUser);
         } else {
@@ -41,16 +50,30 @@ export const Profile: React.FC = () => {
 
     const getFromStorage = () => {
       const localData = localStorage.getItem('user') || localStorage.getItem('currentUser') || sessionStorage.getItem('user');
+      const localProfileImage = localStorage.getItem('user_profile_image');
+      
       if (localData) {
         try {
           const parsed = JSON.parse(localData);
+          if (localProfileImage) {
+            parsed.profileImageUrl = localProfileImage;
+            parsed.profilePicture = localProfileImage;
+          } else if (parsed.profileImageUrl?.startsWith('/uploads')) {
+            parsed.profileImageUrl = '';
+          }
           setProfile(parsed);
           setEditForm(parsed);
         } catch (e) {
           setEditForm(profile);
         }
       } else {
-        setEditForm(profile);
+        if (localProfileImage) {
+          const defaultUser = { ...profile, profileImageUrl: localProfileImage, profilePicture: localProfileImage };
+          setProfile(defaultUser);
+          setEditForm(defaultUser);
+        } else {
+          setEditForm(profile);
+        }
       }
     };
 
@@ -72,7 +95,7 @@ export const Profile: React.FC = () => {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
   };
 
-  // Instant File Reader Base64 conversion so image renders immediately
+  // Instant File Reader Base64 conversion so profile image renders immediately and saves locally
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -96,10 +119,19 @@ export const Profile: React.FC = () => {
       setMessage(null);
       let updatedData = { ...editForm };
 
+      // Save profile image directly to localStorage for reliable frontend rendering
+      const currentImg = editForm.profileImageUrl || editForm.profilePicture || editForm.avatarUrl;
+      if (currentImg && currentImg.startsWith('data:')) {
+        localStorage.setItem('user_profile_image', currentImg);
+      }
+
       // Try calling backend service
       if (profile?.id) {
         try {
-          const res = await AuthService.UpdateProfile(profile.id, editForm);
+          const res = await AuthService.UpdateProfile(profile.id, {
+            ...editForm,
+            profileImageUrl: currentImg?.startsWith('data:') ? '' : currentImg
+          });
           if (res && typeof res === 'object') {
             updatedData = { ...updatedData, ...res };
           }
@@ -108,16 +140,22 @@ export const Profile: React.FC = () => {
         }
       }
 
+      // Ensure local backup image stays intact
+      const savedImg = localStorage.getItem('user_profile_image');
+      if (savedImg) {
+        updatedData.profileImageUrl = savedImg;
+        updatedData.profilePicture = savedImg;
+      }
+
       // Update local state
       setProfile(updatedData);
 
-      // Save to ALL possible storage keys so Navbar / Topbar picks it up instantly
+      // Save to ALL storage keys so Navbar picks it up instantly
       const stringified = JSON.stringify(updatedData);
       localStorage.setItem('user', stringified);
       localStorage.setItem('currentUser', stringified);
       sessionStorage.setItem('user', stringified);
 
-      // Broadcast update events across the window
       window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new CustomEvent('user-updated', { detail: updatedData }));
 
@@ -149,12 +187,13 @@ export const Profile: React.FC = () => {
 
   if (loading) return <div className="profile-loading">Loading profile...</div>;
 
-  // Resolve active image from profile state or edit preview
+  // Resolve active profile image
   const activeImage = isEditing 
     ? (editForm.profileImageUrl || editForm.profilePicture || editForm.avatarUrl) 
     : (profile?.profileImageUrl || profile?.profilePicture || profile?.avatarUrl);
 
-  const hasValidImage = activeImage && typeof activeImage === 'string' && activeImage.trim() !== '' && activeImage !== 'null' && activeImage !== 'undefined';
+  // Only render if it's a valid Base64 data string or absolute HTTP URL (ignoring broken /uploads server paths)
+  const hasValidImage = activeImage && typeof activeImage === 'string' && (activeImage.startsWith('data:') || activeImage.startsWith('http'));
 
   const getInitials = () => {
     const fn = profile?.firstName || profile?.name?.split(' ')?.[0] || 'N';
@@ -173,14 +212,14 @@ export const Profile: React.FC = () => {
             <hr className="subtle-divider" />
           </div>
 
-          {/* Section A: Profile Header & Avatar */}
+          {/* Section A: Profile Header & Image */}
           <div className="profile-header-section">
             <div className="profile-avatar">
               {hasValidImage ? (
                 <img 
                   src={activeImage} 
                   alt="Profile" 
-                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
                 <div className="profile-avatar-initials">
@@ -254,7 +293,7 @@ export const Profile: React.FC = () => {
               </div>
             </>
           ) : (
-            /* Inline Edit Form with Profile Photo Upload */
+            /* Inline Edit Form with Profile Picture Upload */
             <form onSubmit={handleSaveProfile} className="profile-edit-form">
               <h3 className="section-title">Edit Profile & Photo</h3>
               

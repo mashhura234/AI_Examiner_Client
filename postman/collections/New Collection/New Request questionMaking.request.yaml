@@ -1,0 +1,15 @@
+$kind: http-request
+description: ""
+url: http://localhost:7165/api/generate-questions?q=Generate questions for examid:2002  and Setid:4002  rules:1 mcq questions with 3 options  and 1 descriptive question
+method: POST
+queryParams:
+  q: Generate questions for examid:2002  and Setid:4002  rules:1 mcq questions with 3 options  and 1 descriptive question
+body:
+  type: json
+  content: ""
+auth:
+  type: bearer
+  credentials:
+    token: |2
+          "accessToken": "{{json_web_token_0h4i}}",
+order: 3000

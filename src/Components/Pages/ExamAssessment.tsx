@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { assessmentPortalServices } from '../../Services/assessmentPortalServices';
 import type { MyExamDto, ExamPaperResponse, SavedAnswerResponseDto, SaveAnswerDto } from '../../Models/assessmentPortalModel';
+import ResultModal from './ResultModal'; // Adjust path if saved in Molecules or Modals
 import '../../Styles/ExamAssessment.css';
 
 export const ExamAssessment: React.FC = () => {
@@ -12,6 +13,9 @@ export const ExamAssessment: React.FC = () => {
   const [savedAnswers, setSavedAnswers] = useState<SavedAnswerResponseDto[]>([]);
   const [answersMap, setAnswersMap] = useState<{ [questionId: number]: { optionId?: number | null; description?: string } }>({});
   
+  // State for opening the official score report modal
+  const [selectedResultParticipantId, setSelectedResultParticipantId] = useState<number | null>(null);
+
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -126,13 +130,12 @@ export const ExamAssessment: React.FC = () => {
         <ul className="ap-list">
           {myExams.map(exam => {
             const expired = isExamExpired(exam);
-            // Feature 2: Extract syllabus name from available backend properties
             const syllabusLabel = (exam as any).syllabusName || (exam as any).syllabus?.topicName || (exam as any).syllabusTitle || 'Syllabus Assigned';
 
             return (
               <li key={exam.participantId} className="ap-card ap-exam-card">
                 <div className="ap-exam-header">
-                  <h4>{exam.examName} - <span className="ap-set-title">{exam.setName}</span></h4>
+                  <h4>{exam.examName} <span className="ap-set-title">{exam.setName}</span></h4>
                   <span className={`ap-badge ${getStatusClass(exam)}`}>
                     {getStatusName(exam)}
                   </span>
@@ -167,6 +170,16 @@ export const ExamAssessment: React.FC = () => {
                     </button>
                   )}
 
+                  {/* Completed / Published Exam Action: View Result */}
+                  {exam.participantStatus === 4 && (
+                    <button 
+                      onClick={() => setSelectedResultParticipantId(exam.participantId)} 
+                      className="ap-btn ap-btn--success"
+                    >
+                      View Result
+                    </button>
+                  )}
+
                   {expired && exam.participantStatus !== 4 && (
                     <span className="ap-meta-text" style={{ fontStyle: 'italic', color: '#b91c1c', fontWeight: 600 }}>
                       Exam session expired. Entry is closed.
@@ -178,6 +191,14 @@ export const ExamAssessment: React.FC = () => {
           })}
         </ul>
       </div>
+
+      {/* Official Exam Score Report Modal popup */}
+      {selectedResultParticipantId !== null && (
+        <ResultModal 
+          participantId={selectedResultParticipantId} 
+          onClose={() => setSelectedResultParticipantId(null)} 
+        />
+      )}
     </div>
   );
 };
