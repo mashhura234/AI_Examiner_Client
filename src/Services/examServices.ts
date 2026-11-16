@@ -27,7 +27,11 @@ export const examServices = {
     const response = await api.put<{ message: string }>(`${API_URL}/${id}`, examData);
     return response.data;
   },
-
+// Add this inside examServices in examServices.ts:
+  archiveExam: async (id: number): Promise<{ message: string }> => {
+    const response = await api.patch<{ message: string }>(`${API_URL}/${id}/archive`);
+    return response.data;
+  },
   // Delete an exam
   deleteExam: async (id: number): Promise<{ message: string }> => {
     const response = await api.delete<{ message: string }>(`${API_URL}/${id}`);

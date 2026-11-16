@@ -1,204 +1,394 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import axios from '../../interceptor';
 import { assessmentPortalServices } from '../../Services/assessmentPortalServices';
-import type { MyExamDto, ExamPaperResponse, SavedAnswerResponseDto, SaveAnswerDto } from '../../Models/assessmentPortalModel';
-import ResultModal from './ResultModal'; // Adjust path if saved in Molecules or Modals
-import '../../Styles/ExamAssessment.css';
+import { examServices } from '../../Services/examServices';
+import { syllabusServices } from '../../Services/syllabusServices';
 
 export const ExamAssessment: React.FC = () => {
-  const navigate = useNavigate();
-  const [myExams, setMyExams] = useState<MyExamDto[]>([]);
-  const [activeParticipantId, setActiveParticipantId] = useState<number | null>(null);
-  const [activeExamPaper, setActiveExamPaper] = useState<ExamPaperResponse | null>(null);
-  const [savedAnswers, setSavedAnswers] = useState<SavedAnswerResponseDto[]>([]);
-  const [answersMap, setAnswersMap] = useState<{ [questionId: number]: { optionId?: number | null; description?: string } }>({});
-  
-  // State for opening the official score report modal
-  const [selectedResultParticipantId, setSelectedResultParticipantId] = useState<number | null>(null);
-
+  const [assignedExams, setAssignedExams] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const fetchMyExams = async () => {
+  const [examSyllabusMap, setExamSyllabusMap] = useState<{ [key: string]: string }>({});
+  const [examAssignedByMap, setExamAssignedByMap] = useState<{ [key: string]: string }>({});
+
+  // Result Modal State
+  const [isResultModalOpen, setIsResultModalOpen] = useState<boolean>(false);
+  const [examResultData, setExamResultData] = useState<any>(null);
+
+  const fetchAssignedExams = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await assessmentPortalServices.getMyExams();
-      
-      // Feature 1: Sort assigned exams by newest first (descending order by start/end date)
-      const sortedData = data.sort((a, b) => {
-        const timeA = new Date(a.startDate || a.endDate || 0).getTime();
-        const timeB = new Date(b.startDate || b.endDate || 0).getTime();
-        return timeB - timeA;
-      });
 
-      setMyExams(sortedData);
+      let examsList: any[] = [];
+
+      try {
+        const data = await assessmentPortalServices.getMyExams();
+        if (Array.isArray(data) && data.length > 0) {
+          examsList = data;
+        }
+      } catch (e) {
+        console.warn('assessmentPortalServices.getMyExams failed, trying examServices...', e);
+      }
+
+      if (examsList.length === 0) {
+        try {
+          const data = await examServices.getMyExams();
+          if (Array.isArray(data) && data.length > 0) {
+            examsList = data;
+          }
+        } catch (e) {
+          console.warn('examServices.getMyExams failed:', e);
+        }
+      }
+
+      setAssignedExams(examsList);
+
+      // Fetch master exams list to correctly resolve Exam IDs
+      let masterExams: any[] = [];
+      try {
+        const res = await axios.get('/Exams');
+        masterExams = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+      } catch (e) {
+        console.warn('Could not fetch master exams list', e);
+      }
+
+      const syllabusTempMap: { [key: string]: string } = {};
+      const assignedByTempMap: { [key: string]: string } = {};
+
+    for (const item of examsList) {
+        const examObj = item.exam || item;
+        const initialExamId = item.examId || examObj.id || item.id || item.ExamId;
+        const examName = item.examName || item.ExamName || examObj.name;
+        const participantId = item.participantId ?? item.ParticipantId ?? item.id;
+
+        // 1. Check if syllabus is already embedded in the API response object
+        let embeddedSyllabus = item.syllabus || examObj.syllabus || item.exam?.syllabus;
+        let resolvedTopic = '';
+
+        if (Array.isArray(embeddedSyllabus) && embeddedSyllabus.length > 0) {
+          resolvedTopic = embeddedSyllabus
+            .map((s: any) => s.title || s.topicName || '')
+            .filter(Boolean)
+            .join(', ');
+        }
+
+        // 2. If not embedded, fetch via master exams or syllabus service
+        if (!resolvedTopic) {
+          const foundMasterExam = masterExams.find(e => 
+            e.id === initialExamId || 
+            (e.name && examName && e.name.toLowerCase() === examName.toLowerCase())
+          );
+          const targetExamId = foundMasterExam?.id || initialExamId;
+
+          if (targetExamId) {
+            try {
+              const sylResponse: any = await syllabusServices.getSyllabusByExamId(targetExamId);
+              let syllabusArray: any[] = [];
+              if (Array.isArray(sylResponse)) {
+                syllabusArray = sylResponse;
+              } else if (sylResponse && typeof sylResponse === 'object') {
+                syllabusArray = sylResponse.syllabus || sylResponse.items || sylResponse.data || [];
+              }
+
+              if (syllabusArray.length > 0) {
+                resolvedTopic = syllabusArray
+                  .map((s: any) => s.title || s.topicName || '')
+                  .filter(Boolean)
+                  .join(', ');
+              }
+            } catch (err) {
+              console.warn(`Could not fetch syllabus for exam ID ${targetExamId}`, err);
+            }
+          }
+        }
+
+        // 3. Fallback to 'General Syllabus' (NOT examName, so we don't mistake exam names for syllabus)
+        const finalTopic = resolvedTopic || examObj.syllabusName || examObj.topicName || 'General Syllabus';
+
+        syllabusTempMap[participantId] = finalTopic;
+        if (initialExamId) syllabusTempMap[initialExamId] = finalTopic;
+
+        assignedByTempMap[participantId] = 'Faculty / Admin';
+        if (initialExamId) assignedByTempMap[initialExamId] = 'Faculty / Admin';
+      }
+
+      setExamSyllabusMap(syllabusTempMap);
+      setExamAssignedByMap(assignedByTempMap);
+
     } catch (err: any) {
-      setError(err?.response?.data || 'Failed to fetch assigned exams.');
+      console.error('Error in fetchAssignedExams:', err);
+      setError('Failed to load assigned exams.');
+      setAssignedExams([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchMyExams();
+    fetchAssignedExams();
   }, []);
 
-  const handleRespond = async (participantId: number, accept: boolean) => {
+  const handleAccept = async (participantId: number) => {
     try {
       setError(null);
-      const res = await assessmentPortalServices.respondInvitation({ participantId, accept });
-      setMessage(res.message);
-      fetchMyExams();
+      await assessmentPortalServices.respondInvitation({ participantId: Number(participantId), accept: true });
+      setMessage('Exam invitation accepted successfully.');
+      fetchAssignedExams();
     } catch (err: any) {
-      setError(err?.response?.data || 'Failed to respond to invitation.');
+      console.error('Accept invitation failed:', err?.response || err);
+      const errDetail = err?.response?.data?.message || err?.response?.data || err?.message || 'Failed to accept invitation.';
+      setError(typeof errDetail === 'string' ? errDetail : JSON.stringify(errDetail));
     }
   };
 
-  // Feature 3: Check if exam end time has passed current time
-  const isExamExpired = (exam: MyExamDto) => {
-    if (!exam.endDate) return false;
-    return new Date().getTime() > new Date(exam.endDate).getTime();
+  const handleDecline = async (participantId: number) => {
+    if (!window.confirm('Are you sure you want to decline this exam invitation?')) return;
+    try {
+      setError(null);
+      await assessmentPortalServices.respondInvitation({ participantId: Number(participantId), accept: false });
+      setMessage('Exam invitation declined.');
+      fetchAssignedExams();
+    } catch (err: any) {
+      console.error('Decline invitation failed:', err?.response || err);
+      const errDetail = err?.response?.data?.message || err?.response?.data || err?.message || 'Failed to decline invitation.';
+      setError(typeof errDetail === 'string' ? errDetail : JSON.stringify(errDetail));
+    }
   };
 
   const handleStartExam = async (participantId: number) => {
-    const exam = myExams.find(e => e.participantId === participantId);
-    if (exam && isExamExpired(exam)) {
-      setError('This exam has expired and can no longer be accessed.');
-      return;
-    }
     try {
       setError(null);
-      const res = await assessmentPortalServices.startExam(participantId);
-      setMessage(res.message);
-      navigate(`/exam-hall/${participantId}`);
+      const res = await axios.post(`/Participants/start/${participantId}`);
+      setMessage(res.data?.message || 'Exam started successfully!');
+      window.location.href = `/exam-hall/${participantId}`;
     } catch (err: any) {
-      setError(err?.response?.data || 'Failed to start exam.');
+      const errDetail = err?.response?.data?.message || err?.response?.data || err?.message || 'Failed to start exam.';
+      setError(typeof errDetail === 'string' ? errDetail : JSON.stringify(errDetail));
     }
   };
 
-  const handleOpenExamPaper = (participantId: number) => {
-    const exam = myExams.find(e => e.participantId === participantId);
-    if (exam && isExamExpired(exam)) {
-      setError('This exam has expired and can no longer be accessed.');
-      return;
-    }
-    navigate(`/exam-hall/${participantId}`);
-  };
-
-  const getStatusName = (exam: MyExamDto) => {
-    if (isExamExpired(exam) && exam.participantStatus !== 4) {
-      return 'Expired';
-    }
-    switch (exam.participantStatus) {
-      case 1: return 'Invited';
-      case 2: return 'Accepted';
-      case 3: return 'In-Progress (Attended)';
-      case 4: return 'Completed';
-      case 5: return 'Suspended/Declined';
-      case 6: return 'Absent';
-      default: return 'Unknown';
-    }
-  };
-
-  const getStatusClass = (exam: MyExamDto) => {
-    if (isExamExpired(exam) && exam.participantStatus !== 4) {
-      return 'ap-badge--expired';
-    }
-    switch (exam.participantStatus) {
-      case 2: return 'ap-badge--accepted';
-      case 3: return 'ap-badge--progress';
-      case 4: return 'ap-badge--completed';
-      case 5: return 'ap-badge--declined';
-      default: return 'ap-badge--invited';
+  const handleViewResult = async (participantId: number) => {
+    try {
+      setError(null);
+      const res = await assessmentPortalServices.getMyResult(participantId);
+      setExamResultData(res);
+      setIsResultModalOpen(true);
+    } catch (err: any) {
+      const errDetail = err?.response?.data?.message || err?.response?.data || err?.message || 'Result not published or available yet.';
+      setError(typeof errDetail === 'string' ? errDetail : JSON.stringify(errDetail));
     }
   };
 
   return (
-    <div className="ap-page">
+    <div className="manage-page" style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }}>
       <h2>Exam Assessment & Answering Portal</h2>
 
-      {message && <p className="ap-success">{message}</p>}
-      {error && <p className="ap-error">{error}</p>}
+      {message && <p className="manage-success" style={{ color: '#2e7d32', marginBottom: '15px' }}>{message}</p>}
+      {error && <p className="manage-error" style={{ color: '#dc3545', marginBottom: '15px' }}>{error}</p>}
 
-      <div>
-        <h3>My Assigned Exams</h3>
-        {loading && <p className="ap-info">Loading exams...</p>}
-        {!loading && myExams.length === 0 && <p className="ap-info">No exam invitations found.</p>}
-
-        <ul className="ap-list">
-          {myExams.map(exam => {
-            const expired = isExamExpired(exam);
-            const syllabusLabel = (exam as any).syllabusName || (exam as any).syllabus?.topicName || (exam as any).syllabusTitle || 'Syllabus Assigned';
-
-            return (
-              <li key={exam.participantId} className="ap-card ap-exam-card">
-                <div className="ap-exam-header">
-                  <h4>{exam.examName} <span className="ap-set-title">{exam.setName}</span></h4>
-                  <span className={`ap-badge ${getStatusClass(exam)}`}>
-                    {getStatusName(exam)}
-                  </span>
+      {/* --- RESULT POPUP MODAL --- */}
+      {isResultModalOpen && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: '0', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="modal-content" style={{ background: '#fff', padding: '30px', borderRadius: '16px', maxWidth: '650px', width: '90%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', position: 'relative' }}>
+            <button 
+              onClick={() => setIsResultModalOpen(false)} 
+              style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}
+            >
+              &times;
+            </button>
+            <h3 style={{ color: '#375534', marginBottom: '16px' }}>📊 Exam Result & Evaluation</h3>
+            
+            {examResultData ? (
+              <div style={{ display: 'grid', gap: '15px', fontSize: '0.95rem', color: '#2b2a28' }}>
+                {/* Summary Section */}
+                <div style={{ background: 'rgba(55,85,52,0.05)', padding: '15px', borderRadius: '10px' }}>
+                  <p style={{ margin: '0 0 6px 0' }}><strong>Exam Name:</strong> {examResultData.examName || examResultData.ExamName || 'N/A'}</p>
+                  <p style={{ margin: '0 0 6px 0' }}>
+                    <strong>Total Score:</strong> {examResultData.totalMarks ?? examResultData.TotalMarks ?? examResultData.totalScore ?? 'N/A'} / {examResultData.maxMarks ?? examResultData.MaxMarks ?? 100}
+                  </p>
+                  <p style={{ margin: '0 0 6px 0' }}>
+                    <strong>Grade Achieved:</strong> <span style={{ fontWeight: 'bold', color: '#2e7d32' }}>{examResultData.grade || examResultData.Grade || 'N/A'} (CGPA: {examResultData.cgpa ?? examResultData.CGPA ?? 'N/A'})</span>
+                  </p>
+                  <p style={{ margin: 0 }}>
+                    <strong>Status:</strong> {(examResultData.isPassed ?? examResultData.IsPassed) ? 'PASSED ✅' : 'FAILED ❌'}
+                  </p>
                 </div>
-                
-                <p className="ap-meta-text">
-                  <strong>Syllabus:</strong> {syllabusLabel} <br />
-                  Starts: {new Date(exam.startDate).toLocaleString()} | Ends: {new Date(exam.endDate).toLocaleString()}
-                </p>
 
-                <div className="ap-action-row">
-                  {!expired && exam.participantStatus === 1 && (
-                    <>
-                      <button onClick={() => handleRespond(exam.participantId, true)} className="ap-btn ap-btn--success">
-                        Accept Invitation
-                      </button>
-                      <button onClick={() => handleRespond(exam.participantId, false)} className="ap-btn ap-btn--danger">
-                        Decline
-                      </button>
-                    </>
-                  )}
+                {/* Question-wise Breakdown Section */}
+                <h4 style={{ color: '#375534', margin: '4px 0 0 0' }}>Question-wise Evaluation:</h4>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {(examResultData.breakdown || examResultData.Breakdown || []).length === 0 ? (
+                    <p style={{ fontStyle: 'italic', color: '#666', margin: 0 }}>No question-wise breakdown available.</p>
+                  ) : (
+                    (examResultData.breakdown || examResultData.Breakdown || []).map((item: any, idx: number) => {
+                      const qTitle = item.questionTitle || item.QuestionTitle || `Question ${idx + 1}`;
+                      const awarded = item.awardedMarks ?? item.AwardedMarks ?? item.marks ?? item.Marks ?? 0;
+                      const max = item.maxMarks ?? item.MaxMarks ?? 0;
+                      const reason = item.reasonOfMarking || item.ReasonOfMarking || 'No feedback provided.';
 
-                  {!expired && exam.participantStatus === 2 && (
-                    <button onClick={() => handleStartExam(exam.participantId)} className="ap-btn ap-btn--primary">
-                      Start Exam
-                    </button>
-                  )}
-
-                  {!expired && exam.participantStatus === 3 && (
-                    <button onClick={() => handleOpenExamPaper(exam.participantId)} className="ap-btn ap-btn--info">
-                      Open Exam & Answer Portal
-                    </button>
-                  )}
-
-                  {/* Completed / Published Exam Action: View Result */}
-                  {exam.participantStatus === 4 && (
-                    <button 
-                      onClick={() => setSelectedResultParticipantId(exam.participantId)} 
-                      className="ap-btn ap-btn--success"
-                    >
-                      View Result
-                    </button>
-                  )}
-
-                  {expired && exam.participantStatus !== 4 && (
-                    <span className="ap-meta-text" style={{ fontStyle: 'italic', color: '#b91c1c', fontWeight: 600 }}>
-                      Exam session expired. Entry is closed.
-                    </span>
+                      return (
+                        <div key={item.questionId || item.QuestionId || idx} style={{ background: '#f9f9f9', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 600, marginBottom: '6px' }}>
+                            <span>Q{idx + 1}: {qTitle}</span>
+                            <span style={{ color: '#2e7d32', whiteSpace: 'nowrap', marginLeft: '10px' }}>
+                              {awarded} / {max} Marks
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '0.85rem', color: '#555', margin: 0 }}>
+                            <strong>Reason / Feedback:</strong> {reason}
+                          </p>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+              </div>
+            ) : (
+              <p>Loading result details...</p>
+            )}
 
-      {/* Official Exam Score Report Modal popup */}
-      {selectedResultParticipantId !== null && (
-        <ResultModal 
-          participantId={selectedResultParticipantId} 
-          onClose={() => setSelectedResultParticipantId(null)} 
-        />
+            <button 
+              onClick={() => setIsResultModalOpen(false)} 
+              style={{ marginTop: '20px', width: '100%', background: '#375534', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
+
+      <div className="manage-card" style={{ background: 'rgba(255, 255, 255, 0.65)', backdropFilter: 'blur(10px)', borderRadius: '16px', padding: '24px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
+        <h3 style={{ marginBottom: '20px', color: '#375534' }}>My Assigned Exams</h3>
+
+        {loading ? (
+          <p>Loading assigned exams...</p>
+        ) : (
+          <div style={{ display: 'grid', gap: '20px' }}>
+            {assignedExams.map((item, idx) => {
+              const examObj = item.exam || item;
+              const participantId = item.participantId ?? item.ParticipantId ?? item.id;
+              const examId = item.examId || examObj.id || item.id || item.ExamId;
+              const examTitle = item.examName || item.ExamName || examObj.name || examObj.title || 'Untitled Exam';
+              
+              const startDateObj = examObj.startDate || item.startDate || item.StartDate ? new Date(examObj.startDate || item.startDate || item.StartDate) : null;
+              const endDateObj = examObj.endDate || item.endDate || item.EndDate ? new Date(examObj.endDate || item.endDate || item.EndDate) : null;
+              
+              const startDateStr = startDateObj && !isNaN(startDateObj.getTime()) ? startDateObj.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
+              const endDateStr = endDateObj && !isNaN(endDateObj.getTime()) ? endDateObj.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
+
+              // Safely lookup syllabus topic by participantId or examId
+              const syllabusTopic = 
+                examSyllabusMap[participantId] || 
+                examSyllabusMap[examId] || 
+                'General Syllabus';
+
+              const assignedByUser = examAssignedByMap[examId] || examAssignedByMap[participantId] || 'Faculty / Admin';
+
+              const status = item.participantStatus ?? item.ParticipantStatus ?? item.status ?? examObj.status ?? 1;
+              const resultStatus = item.resultStatus ?? item.ResultStatus ?? 0;
+
+              const isInvited = status === 1;
+              const isAccepted = status === 2;
+              const isCompleted = status === 3 || status === 4 || resultStatus === 2;
+              const isExpired = endDateObj && endDateObj.getTime() < Date.now();
+
+              return (
+                <div 
+                  key={participantId || idx} 
+                  style={{ 
+                    background: 'rgba(255, 255, 255, 0.85)', 
+                    borderRadius: '12px', 
+                    padding: '20px 24px', 
+                    border: '1px solid rgba(55, 85, 52, 0.15)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    position: 'relative'
+                  }}
+                >
+                  {/* Status Badge */}
+                  <div style={{ position: 'absolute', top: '20px', right: '24px' }}>
+                    {isCompleted ? (
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#2e7d32', background: 'rgba(46, 125, 50, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>Completed</span>
+                    ) : isAccepted ? (
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#2e7d32', background: 'rgba(46, 125, 50, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>Accepted</span>
+                    ) : isExpired ? (
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#dc3545', background: 'rgba(220, 53, 69, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>Expired</span>
+                    ) : (
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#d97706', background: 'rgba(217, 119, 6, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>Invited</span>
+                    )}
+                  </div>
+
+                  <h4 style={{ fontSize: '1.2rem', margin: 0, color: '#2b2a28' }}>{examTitle}</h4>
+                  
+                  <div style={{ fontSize: '0.95rem', color: '#375534' }}>
+                    <strong>Syllabus:</strong> {syllabusTopic}
+                  </div>
+
+                  <div style={{ fontSize: '0.9rem', color: '#6b6252' }}>
+                    <strong>Assigned By:</strong> {assignedByUser}
+                  </div>
+
+                  <div style={{ fontSize: '0.85rem', color: '#6b6252' }}>
+                    Starts: {startDateStr} | Ends: {endDateStr}
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                    {isInvited && !isExpired && !isCompleted && (
+                      <>
+                        <button 
+                          onClick={() => handleAccept(participantId)}
+                          style={{ background: '#d97706', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+                        >
+                          Accept Invitation
+                        </button>
+                        <button 
+                          onClick={() => handleDecline(participantId)}
+                          style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+                        >
+                          Decline
+                        </button>
+                      </>
+                    )}
+
+                    {isAccepted && !isExpired && !isCompleted && (
+                      <button 
+                        onClick={() => handleStartExam(participantId)}
+                        style={{ background: '#2e7d32', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+                      >
+                        🚀 Start Exam / Enter Hall
+                      </button>
+                    )}
+
+                    {isCompleted && (
+                      <button 
+                        onClick={() => handleViewResult(participantId)}
+                        style={{ background: '#375534', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+                      >
+                        View Result
+                      </button>
+                    )}
+
+                    {isExpired && !isCompleted && (
+                      <div style={{ fontSize: '0.85rem', color: '#dc3545', fontStyle: 'italic' }}>
+                        Exam session expired. Entry is closed.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {assignedExams.length === 0 && (
+              <p style={{ textAlign: 'center', color: '#6b6252', fontStyle: 'italic' }}>No assigned exams found.</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -15,6 +15,7 @@ import '../../Styles/ESQ_Manage.css';
 export const ESQ_Manage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'workspace'>('list');
   const [activeTab, setActiveTab] = useState<'exams' | 'syllabus' | 'grades' | 'questions'>('exams');
+  const [editingExamId, setEditingExamId] = useState<number | null>(null);
 
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -114,9 +115,21 @@ export const ESQ_Manage: React.FC = () => {
 
         for (const ex of examArray) {
           try {
-            const syls = await syllabusServices.getSyllabusByExamId(ex.id);
-            if (Array.isArray(syls) && syls.length > 0) {
-              syllabiTempMap[ex.id] = syls.map(s => s.topicName || '').join(', ');
+            const sylResponse: any = await syllabusServices.getSyllabusByExamId(ex.id);
+            let syllabusArray: any[] = [];
+            
+            // Unpack whether it's an array or an ExamDetailsResponse object
+            if (Array.isArray(sylResponse)) {
+              syllabusArray = sylResponse;
+            } else if (sylResponse && typeof sylResponse === 'object') {
+              syllabusArray = sylResponse.syllabus || sylResponse.items || sylResponse.data || [];
+            }
+
+            if (syllabusArray.length > 0) {
+              syllabiTempMap[ex.id] = syllabusArray
+                .map((s: any) => s.title || s.topicName || '')
+                .filter(Boolean)
+                .join(', ');
             } else {
               syllabiTempMap[ex.id] = 'No Syllabus Assigned';
             }
@@ -124,36 +137,7 @@ export const ESQ_Manage: React.FC = () => {
             syllabiTempMap[ex.id] = 'No Syllabus Assigned';
           }
 
-          // Fetch participant count for status evaluation
-          let participantCount = 0;
-          try {
-            const res = await axios.get(`/api/examparticipants/exam/${ex.id}`);
-            const d = res.data;
-            if (typeof d === 'number') {
-              participantCount = d;
-            } else if (Array.isArray(d)) {
-              participantCount = d.length;
-            } else if (d && typeof d === 'object') {
-              const list = d.data || d.items || d.participants || d.value;
-              participantCount = Array.isArray(list) ? list.length : (typeof d.count === 'number' ? d.count : 0);
-            }
-          } catch {
-            try {
-              const res2 = await axios.get(`/api/exams/${ex.id}/participants`);
-              const d2 = res2.data;
-              if (typeof d2 === 'number') {
-                participantCount = d2;
-              } else if (Array.isArray(d2)) {
-                participantCount = d2.length;
-              } else if (d2 && typeof d2 === 'object') {
-                const list2 = d2.data || d2.items || d2.participants || d2.value;
-                participantCount = Array.isArray(list2) ? list2.length : 0;
-              }
-            } catch {
-              participantCount = 0;
-            }
-          }
-          participantsTempMap[ex.id] = participantCount;
+          participantsTempMap[ex.id] = 1;
         }
 
         setExamSyllabiMap(syllabiTempMap);
@@ -178,16 +162,31 @@ export const ESQ_Manage: React.FC = () => {
   const handleDeleteExam = async (examId: number) => {
     if (!window.confirm('Are you sure you want to delete this archived exam?')) return;
     try {
-      await axios.delete(`/api/exams/${examId}`);
+      setError(null);
+      await examServices.deleteExam(examId); // 🌟 Use examServices instead of raw axios
       setMessage('Archived exam deleted successfully.');
       fetchExams();
     } catch (err: any) {
-      setError(err?.response?.data || 'Failed to delete exam.');
+      setError(err?.response?.data?.message || err?.response?.data || 'Failed to delete exam.');
+    }
+  };
+
+  // Archive exam handler
+  const handleArchiveExam = async (examId: number) => {
+    if (!window.confirm('Are you sure you want to archive this exam?')) return;
+    try {
+      setError(null);
+      const res = await (examServices as any).archiveExam(examId);
+      setMessage(res?.message || 'Exam archived successfully.');
+      fetchExams();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.response?.data || 'Failed to archive exam.');
     }
   };
 
   // Edit active exam handler
   const handleEditExam = (exam: Exam) => {
+    setEditingExamId(exam.id);
     setExamForm({
       name: exam.name || (exam as any).title || '',
       description: exam.description || '',
@@ -391,13 +390,20 @@ export const ESQ_Manage: React.FC = () => {
       setError(null);
       const payload = {
         ...examForm,
-        startDate: examForm.startDate ? new Date(examForm.startDate).toISOString() : '',
-        endDate: examForm.endDate ? new Date(examForm.endDate).toISOString() : '',
-        resultPublishDate: examForm.resultPublishDate ? new Date(examForm.resultPublishDate).toISOString() : null,
+        startDate: examForm.startDate ? `${examForm.startDate}:00` : '',
+        endDate: examForm.endDate ? `${examForm.endDate}:00` : '',
+        resultPublishDate: examForm.resultPublishDate ? `${examForm.resultPublishDate}:00` : null,
       };
 
-      const res = await examServices.createExam(payload);
-      setMessage(res?.message || 'Exam saved successfully.');
+      if (editingExamId) {
+        const res = await examServices.updateExam(editingExamId, payload);
+        setMessage(res?.message || 'Exam updated successfully.');
+      } else {
+        const res = await examServices.createExam(payload);
+        setMessage(res?.message || 'Exam saved successfully.');
+      }
+
+      setEditingExamId(null);
       setExamForm({
         name: '',
         description: '',
@@ -412,7 +418,7 @@ export const ESQ_Manage: React.FC = () => {
       setViewMode('list');
       fetchExams();
     } catch (err: any) {
-      console.error("Error creating exam:", err);
+      console.error("Error saving exam:", err);
       const errorMsg = err?.response?.data?.message || err?.response?.data || err?.message || 'Failed to save exam.';
       setError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
     }
@@ -456,7 +462,11 @@ export const ESQ_Manage: React.FC = () => {
 
       const promptStr = `Generate questions for examId:${selectedExamForQuestions} and setId:${selectedSetId}, rules: ${aiPrompt}`;
       
-      const response = await axios.post(`http://localhost:7165/api/generate-questions?q=${encodeURIComponent(promptStr)}`);
+      const response = await axios.post(
+        `http://localhost:7165/api/generate-questions?q=${encodeURIComponent(promptStr)}`,
+        {},
+        { timeout: 60000 }
+      );
       
       if (response.data && response.data.success) {
         setMessage('✨ AI questions generated and saved to database successfully!');
@@ -470,7 +480,7 @@ export const ESQ_Manage: React.FC = () => {
         setError('AI generation completed with warnings.');
       }
     } catch (err: any) {
-      setError(err?.response?.data || err?.message || 'Failed to generate AI questions.');
+      setError(err?.response?.data?.message || err?.message || 'Failed to generate AI questions (Timeout or Connection Error).');
     } finally {
       setAiLoading(false);
     }
@@ -543,7 +553,7 @@ export const ESQ_Manage: React.FC = () => {
   const safeSets = Array.isArray(sets) ? sets : [];
   const safeQuestionsList = Array.isArray(questionsList) ? questionsList : [];
 
-  const activeExamsCount = safeExams.filter(ex => (examParticipantsMap[ex.id] || 0) >= 1).length;
+  const activeExamsCount = safeExams.filter(ex => ex.status !== 2 && (ex as any).status !== 'Archived').length;
   const totalExamsCount = safeExams.length;
 
   return (
@@ -607,6 +617,7 @@ export const ESQ_Manage: React.FC = () => {
             <h3 style={{ margin: 0 }}>All Exams</h3>
             <button 
               onClick={() => {
+                setEditingExamId(null);
                 setExamForm({
                   name: '',
                   description: '',
@@ -675,11 +686,9 @@ export const ESQ_Manage: React.FC = () => {
 
                     const syllabusTitle = examSyllabiMap[ex.id] || (ex as any).syllabusName || 'No Syllabus Assigned';
                     
-                    // Strict Rule: Active ONLY if assigned participants >= 1
-                    const assignedCount = examParticipantsMap[ex.id] ?? 0;
-                    const isActive = assignedCount >= 1;
-                    const statusLabel = isActive ? 'Active' : 'Archived';
-                    const statusBadgeClass = isActive ? 'active' : 'archived';
+                    const isArchived = ex.status === 2 || (ex as any).status === 'Archived';
+                    const statusLabel = isArchived ? 'Archived' : 'Active';
+                    const statusBadgeClass = isArchived ? 'archived' : 'active';
 
                     return (
                       <tr key={ex.id}>
@@ -696,15 +705,24 @@ export const ESQ_Manage: React.FC = () => {
                         <td>
                           <span className={`exam-status-badge ${statusBadgeClass}`}>{statusLabel}</span>
                         </td>
-                        <td style={{ textAlign: 'center' }}>
-                          {isActive ? (
-                            <button 
-                              onClick={() => handleEditExam(ex)}
-                              title="Edit Active Exam"
-                              style={{ background: '#375534', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
-                            >
-                              Edit
-                            </button>
+                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          {!isArchived ? (
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                              <button 
+                                onClick={() => handleEditExam(ex)}
+                                title="Edit Active Exam"
+                                style={{ background: '#375534', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => handleArchiveExam(ex.id)}
+                                title="Archive Exam"
+                                style={{ background: '#d97706', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
+                              >
+                                Archive
+                              </button>
+                            </div>
                           ) : (
                             <button 
                               onClick={() => handleDeleteExam(ex.id)}
@@ -734,7 +752,7 @@ export const ESQ_Manage: React.FC = () => {
       {viewMode === 'workspace' && (
         <div>
           <button 
-            onClick={() => setViewMode('list')} 
+            onClick={() => { setEditingExamId(null); setViewMode('list'); }} 
             className="manage-btn manage-btn--secondary"
             style={{ marginBottom: '18px', padding: '8px 16px', fontSize: '0.9rem' }}>
             &larr; Back to All Exams
@@ -765,7 +783,7 @@ export const ESQ_Manage: React.FC = () => {
 
           {activeTab === 'exams' && (
             <div className="manage-card">
-              <h3>Exam Configurator</h3>
+              <h3>{editingExamId ? 'Edit Exam' : 'Exam Configurator'}</h3>
               <form onSubmit={handleCreateExam} className="manage-form">
                 <div>
                   <label>Exam Title</label>
@@ -795,7 +813,9 @@ export const ESQ_Manage: React.FC = () => {
                     <input type="number" placeholder="Min Marks Required" value={examForm.minimumMarksRequired ?? ''} onChange={e => setExamForm({ ...examForm, minimumMarksRequired: Number(e.target.value) })} />
                   </div>
                 </div>
-                <button type="submit" className="manage-btn manage-btn--primary">Save Exam</button>
+                <button type="submit" className="manage-btn manage-btn--primary">
+                  {editingExamId ? 'Update Exam' : 'Save Exam'}
+                </button>
               </form>
             </div>
           )}

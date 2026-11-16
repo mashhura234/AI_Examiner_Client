@@ -7,12 +7,10 @@ export const Grading: React.FC = () => {
   const [exams, setExams] = useState<any[]>([]);
   const [selectedExamId, setSelectedExamId] = useState<number | ''>('');
   const [submissions, setSubmissions] = useState<any[]>([]);
-  
-  // Track evaluated/completed participant IDs locally
-  const [completedParticipantIds, setCompletedParticipantIds] = useState<number[]>([]);
 
   const [loadingExams, setLoadingExams] = useState<boolean>(false);
   const [loadingSubmissions, setLoadingSubmissions] = useState<boolean>(false);
+  const [savingAction, setSavingAction] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,16 +55,22 @@ export const Grading: React.FC = () => {
     }
   };
 
-  // Filter out completed submissions from the pending table list
-  const activePendingSubmissions = submissions.filter(sub => {
-    const pId = sub.participantId || sub.ParticipantId;
-    return !completedParticipantIds.includes(pId);
-  });
+  // ResultStatus enum: 1 = Inactive, 2 = Processing, 3 = Published, 4 = Suspended
+  const publishedCount = submissions.filter(sub => (sub.resultStatus ?? sub.ResultStatus) === 3).length;
+  const pendingCount = Math.max(0, submissions.length - publishedCount);
 
-  // Dynamic counts based on loaded submissions vs completed marking
-  const totalLoadedCount = submissions.length;
-  const completedCount = completedParticipantIds.length;
-  const pendingCount = Math.max(0, totalLoadedCount - completedCount);
+  const getResultStatusLabel = (status?: number) => {
+    switch (status) {
+      case 2:
+        return 'Draft Saved (Not Published)';
+      case 3:
+        return 'Published';
+      case 4:
+        return 'Suspended';
+      default:
+        return 'Pending Evaluation';
+    }
+  };
 
   const handleOpenGradingWorkspace = async (participantId: number) => {
     try {
@@ -75,7 +79,7 @@ export const Grading: React.FC = () => {
       const paper = await GradingServices.getSubmissionForGrading(participantId);
       setGradingPaper(paper);
 
-      // Pre-fill marks map with existing scores if any
+      // Pre-fill marks map with existing scores or system-verified MCQ suggestions
       const initialMap: { [qId: number]: { marks: number; reason: string } } = {};
       const questionsList = paper?.questions || (paper as any)?.Questions || [];
       questionsList.forEach((q: any) => {
@@ -101,47 +105,76 @@ export const Grading: React.FC = () => {
     }));
   };
 
+  const buildEvaluationPayload = (participantId: number) => {
+    const evaluations = Object.keys(marksMap).map(qId => ({
+      questionId: Number(qId),
+      marks: marksMap[Number(qId)].marks,
+      awardedMarks: marksMap[Number(qId)].marks,
+      reasonOfMarking: marksMap[Number(qId)].reason
+    }));
+
+    return {
+      participantId,
+      evaluations
+    };
+  };
+
   const handleSaveEvaluation = async (participantId: number) => {
     try {
+      setSavingAction(true);
       setError(null);
-      const evaluations = Object.keys(marksMap).map(qId => ({
-        questionId: Number(qId),
-        awardedMarks: marksMap[Number(qId)].marks,
-        reasonOfMarking: marksMap[Number(qId)].reason
-      }));
-
-      const payload = {
-        participantId: participantId,
-        evaluations: evaluations
-      };
-
+      const payload = buildEvaluationPayload(participantId);
       const res = await GradingServices.saveEvaluation(payload as any);
-      setMessage(res?.message || 'Marks saved successfully.');
+      setMessage(res?.message || 'Draft marks saved. Click "Finalize & Publish Result" to release to the student.');
 
-      // Mark as completed and close workspace
-      if (!completedParticipantIds.includes(participantId)) {
-        setCompletedParticipantIds(prev => [...prev, participantId]);
-      }
-      setActiveParticipantId(null);
+      // Update local submission status to Processing (2) without hiding the row
+      setSubmissions(prev =>
+        prev.map(sub => {
+          const pId = sub.participantId || sub.ParticipantId;
+          return pId === participantId ? { ...sub, resultStatus: 2, ResultStatus: 2 } : sub;
+        })
+      );
     } catch (err: any) {
       setError(err?.response?.data || 'Failed to save evaluation marks.');
+    } finally {
+      setSavingAction(false);
     }
   };
 
   const handleFinalizeAndPublish = async (participantId: number) => {
     if (!window.confirm('Are you sure you want to finalize and publish results for this student?')) return;
     try {
+      setSavingAction(true);
       setError(null);
+
+      // 1. Save current marks to Results table first so SUM(Marks) is accurate
+      const payload = buildEvaluationPayload(participantId);
+      await GradingServices.saveEvaluation(payload as any);
+
+      // 2. Finalize calculation and set ResultStatus = 3 (Published)
       const res = await GradingServices.finalizeAndPublishResult(participantId);
       setMessage(res?.message || 'Result finalized and published successfully.');
-      
-      // Mark as completed and close workspace
-      if (!completedParticipantIds.includes(participantId)) {
-        setCompletedParticipantIds(prev => [...prev, participantId]);
-      }
+
+      // Update local submission status to Published (3) and close modal
+      setSubmissions(prev =>
+        prev.map(sub => {
+          const pId = sub.participantId || sub.ParticipantId;
+          return pId === participantId
+            ? {
+                ...sub,
+                resultStatus: 3,
+                ResultStatus: 3,
+                totalMarks: res?.totalMarks ?? sub.totalMarks,
+                grade: res?.grade ?? sub.grade
+              }
+            : sub;
+        })
+      );
       setActiveParticipantId(null);
     } catch (err: any) {
       setError(err?.response?.data || 'Failed to publish result.');
+    } finally {
+      setSavingAction(false);
     }
   };
 
@@ -158,18 +191,19 @@ export const Grading: React.FC = () => {
         <div className="manage-row" style={{ alignItems: 'flex-end', gap: '15px' }}>
           <div style={{ flex: 1 }}>
             <label><strong>Select Exam:</strong></label>
-            <select 
-              value={selectedExamId} 
+            <select
+              value={selectedExamId}
               onChange={e => setSelectedExamId(Number(e.target.value))}
               style={{ width: '100%', padding: '10px', borderRadius: '8px', marginTop: '5px' }}
+              disabled={loadingExams}
             >
               {exams.map(ex => (
                 <option key={ex.id} value={ex.id}>{ex.name} (ID: {ex.id})</option>
               ))}
             </select>
           </div>
-          <button 
-            onClick={handleLoadSubmissions} 
+          <button
+            onClick={handleLoadSubmissions}
             className="manage-btn manage-btn--primary"
             style={{ padding: '11px 22px' }}
           >
@@ -182,43 +216,52 @@ export const Grading: React.FC = () => {
       {submissions.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px' }}>
           <div style={{ background: 'rgba(255, 243, 205, 0.7)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.3)' }}>
-            <span style={{ fontSize: '0.85rem', color: '#856404', display: 'block' }}>Pending Mark Evaluations</span>
+            <span style={{ fontSize: '0.85rem', color: '#856404', display: 'block' }}>Unpublished / Pending</span>
             <strong style={{ fontSize: '1.4rem', color: '#856404' }}>{pendingCount} Submissions</strong>
           </div>
           <div style={{ background: 'rgba(212, 237, 218, 0.7)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(40, 167, 69, 0.3)' }}>
-            <span style={{ fontSize: '0.85rem', color: '#155724', display: 'block' }}>Completed / Evaluated</span>
-            <strong style={{ fontSize: '1.4rem', color: '#155724' }}>{completedCount} Submissions</strong>
+            <span style={{ fontSize: '0.85rem', color: '#155724', display: 'block' }}>Published Results</span>
+            <strong style={{ fontSize: '1.4rem', color: '#155724' }}>{publishedCount} Submissions</strong>
           </div>
         </div>
       )}
 
       {/* Submissions List Section */}
       <div className="manage-card">
-        <h3>Pending Submissions & Answer Sheets</h3>
-        {activePendingSubmissions.length === 0 ? (
+        <h3>Submissions & Answer Sheets</h3>
+        {submissions.length === 0 ? (
           <p style={{ fontStyle: 'italic', color: '#6b6252', padding: '10px 0' }}>
-            {submissions.length > 0 ? 'All loaded submissions have been evaluated!' : (loadingSubmissions ? 'Fetching candidate answers...' : 'Click "Load Submissions" to view participant answer sheets from the database.')}
+            {loadingSubmissions ? 'Fetching candidate answers...' : 'Click "Load Submissions" to view participant answer sheets from the database.'}
           </p>
         ) : (
           <ul className="manage-list">
-            {activePendingSubmissions.map((sub: any) => {
+            {submissions.map((sub: any) => {
               const pId = sub.participantId || sub.ParticipantId;
               const sName = sub.studentName || sub.StudentName || `Student #${pId}`;
               const sEmail = sub.studentEmail || sub.StudentEmail || '';
-              const subStatus = sub.statusName || sub.StatusName || 'Pending Evaluation';
+              const rStatus = sub.resultStatus ?? sub.ResultStatus;
+              const isPublished = rStatus === 3;
 
               return (
                 <li key={pId} className="manage-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: 'rgba(255,255,255,0.6)', marginBottom: '10px', borderRadius: '10px' }}>
                   <div>
                     <h4 style={{ margin: '0 0 4px 0' }}>{sName}</h4>
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b6252' }}>{sEmail} | Status: <strong>{subStatus}</strong></p>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b6252' }}>
+                      {sEmail} | Result Status:{' '}
+                      <strong style={{ color: isPublished ? '#155724' : '#856404' }}>
+                        {getResultStatusLabel(rStatus)}
+                      </strong>
+                      {isPublished && (sub.totalMarks ?? sub.TotalMarks) != null && (
+                        <span> | Score: <strong>{sub.totalMarks ?? sub.TotalMarks}</strong> ({sub.grade || sub.Grade})</span>
+                      )}
+                    </p>
                   </div>
-                  <button 
-                    onClick={() => handleOpenGradingWorkspace(pId)} 
+                  <button
+                    onClick={() => handleOpenGradingWorkspace(pId)}
                     className="manage-btn manage-btn--success"
                     style={{ padding: '8px 16px', fontSize: '0.9rem' }}
                   >
-                    Evaluate Answer Sheet &rarr;
+                    {isPublished ? 'Review / Re-publish' : 'Evaluate & Publish'} &rarr;
                   </button>
                 </li>
               );
@@ -240,12 +283,18 @@ export const Grading: React.FC = () => {
               {(gradingPaper.questions || gradingPaper.Questions || []).map((q: any, idx: number) => {
                 const qId = q.questionId || q.Id;
                 const maxMarks = q.maxMarks || q.MaxMarks || 5;
-                const studentAns = q.studentAnswer || q.StudentAnswer || 'No answer provided.';
+                const studentAns =
+                  q.answerDescription ||
+                  q.selectedOptionTitle ||
+                  q.description ||
+                  q.studentAnswer ||
+                  q.StudentAnswer ||
+                  'No answer provided.';
 
                 return (
                   <div key={qId} style={{ background: 'rgba(255,255,255,0.5)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.8)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <strong>Q{idx + 1}: {q.title || q.Title}</strong>
+                      <strong>Q{idx + 1}: {q.questionTitle || q.title || q.Title}</strong>
                       <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#375534' }}>Max Marks: {maxMarks}</span>
                     </div>
                     <p style={{ fontSize: '0.9rem', color: '#444', background: 'rgba(0,0,0,0.03)', padding: '10px', borderRadius: '8px' }}>
@@ -255,8 +304,8 @@ export const Grading: React.FC = () => {
                     <div className="manage-row" style={{ marginTop: '10px', gap: '10px' }}>
                       <div style={{ width: '120px' }}>
                         <label style={{ fontSize: '0.8rem' }}>Awarded Marks</label>
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           max={maxMarks}
                           min={0}
                           value={marksMap[qId]?.marks ?? 0}
@@ -266,8 +315,8 @@ export const Grading: React.FC = () => {
                       </div>
                       <div style={{ flex: 1 }}>
                         <label style={{ fontSize: '0.8rem' }}>Faculty Feedback / Reason</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="Provide short feedback or justification..."
                           value={marksMap[qId]?.reason ?? ''}
                           onChange={e => handleMarkChange(qId, 'reason', e.target.value)}
@@ -281,17 +330,19 @@ export const Grading: React.FC = () => {
             </div>
 
             <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button 
-                onClick={() => handleSaveEvaluation(activeParticipantId)} 
+              <button
+                onClick={() => handleSaveEvaluation(activeParticipantId)}
+                disabled={savingAction}
                 className="manage-btn manage-btn--secondary"
               >
-                Save Draft Marks
+                {savingAction ? 'Saving...' : 'Save Draft Marks'}
               </button>
-              <button 
-                onClick={() => handleFinalizeAndPublish(activeParticipantId)} 
+              <button
+                onClick={() => handleFinalizeAndPublish(activeParticipantId)}
+                disabled={savingAction}
                 className="manage-btn manage-btn--primary"
               >
-                Finalize & Publish Result
+                {savingAction ? 'Publishing...' : 'Finalize & Publish Result'}
               </button>
             </div>
           </div>

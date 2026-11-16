@@ -113,10 +113,23 @@ export const ExamHall: React.FC = () => {
     }
   };
 
-  const handleAutoSubmit = async () => {
+ const handleAutoSubmit = async () => {
     if (!participantId) return;
     try {
-      await assessmentPortalServices.submitExam(Number(participantId));
+      const pId = Number(participantId);
+      
+      // Auto-save all current answers before submitting on timeout
+      const savePromises = Object.entries(answersMap).map(([qId, ans]) => 
+        assessmentPortalServices.saveAnswer({
+          participantId: pId,
+          questionId: Number(qId),
+          optionId: ans?.optionId ?? null,
+          description: ans?.description ?? null,
+        }).catch(() => {})
+      );
+      await Promise.all(savePromises);
+
+      await assessmentPortalServices.submitExam(pId);
       alert('Exam time expired. Your exam has been automatically submitted.');
       navigate('/exam-assessment');
     } catch (err) {
@@ -130,7 +143,22 @@ export const ExamHall: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      await assessmentPortalServices.submitExam(Number(participantId));
+      const pId = Number(participantId);
+
+      // --- AUTO-SAVE ALL UNSAVED ANSWERS BEFORE SUBMITTING ---
+      const savePromises = Object.entries(answersMap).map(([qId, ans]) => 
+        assessmentPortalServices.saveAnswer({
+          participantId: pId,
+          questionId: Number(qId),
+          optionId: ans?.optionId ?? null,
+          description: ans?.description ?? null,
+        }).catch(err => console.error(`Failed to save question ${qId}:`, err))
+      );
+
+      await Promise.all(savePromises);
+      // -------------------------------------------------------
+
+      await assessmentPortalServices.submitExam(pId);
       alert('Exam submitted successfully!');
       navigate('/exam-assessment');
     } catch (err: any) {
@@ -139,7 +167,6 @@ export const ExamHall: React.FC = () => {
       setIsSubmitting(false);
     }
   };
-
   if (loading) {
     return (
       <div className="exam-hall-loading">
