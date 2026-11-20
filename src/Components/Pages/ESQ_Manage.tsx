@@ -118,7 +118,6 @@ export const ESQ_Manage: React.FC = () => {
             const sylResponse: any = await syllabusServices.getSyllabusByExamId(ex.id);
             let syllabusArray: any[] = [];
             
-            // Unpack whether it's an array or an ExamDetailsResponse object
             if (Array.isArray(sylResponse)) {
               syllabusArray = sylResponse;
             } else if (sylResponse && typeof sylResponse === 'object') {
@@ -158,12 +157,11 @@ export const ESQ_Manage: React.FC = () => {
       .catch(() => setStandardGradesList([]));
   }, []);
 
-  // Delete archived exam handler
   const handleDeleteExam = async (examId: number) => {
     if (!window.confirm('Are you sure you want to delete this archived exam?')) return;
     try {
       setError(null);
-      await examServices.deleteExam(examId); // 🌟 Use examServices instead of raw axios
+      await examServices.deleteExam(examId);
       setMessage('Archived exam deleted successfully.');
       fetchExams();
     } catch (err: any) {
@@ -171,7 +169,6 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
-  // Archive exam handler
   const handleArchiveExam = async (examId: number) => {
     if (!window.confirm('Are you sure you want to archive this exam?')) return;
     try {
@@ -184,7 +181,6 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
-  // Edit active exam handler
   const handleEditExam = (exam: Exam) => {
     setEditingExamId(exam.id);
     setExamForm({
@@ -513,7 +509,7 @@ export const ESQ_Manage: React.FC = () => {
       const formData = new FormData();
       formData.append('setId', String(selectedSetId));
       formData.append('title', questionTitle);
-      formData.append('description', questionDesc);
+      formData.append('description', questionDesc.trim() !== '' ? questionDesc : questionTitle);
       formData.append('marks', String(questionMarks));
       formData.append('type', String(questionType));
       
@@ -523,11 +519,13 @@ export const ESQ_Manage: React.FC = () => {
       }
 
       if (questionImage) {
-        formData.append('image', questionImage);
+        formData.append('imageFile', questionImage);
       }
 
-      const res = await questionServices.createQuestion(formData);
-      setMessage(res.message || 'Question created.');
+      const res: any = await questionServices.createQuestion(formData);
+      const successMessage = res?.data?.message || res?.message || 'Question created successfully.';
+      setMessage(successMessage);
+
       setQuestionTitle('');
       setQuestionDesc('');
       setQuestionMarks(5);
@@ -543,7 +541,9 @@ export const ESQ_Manage: React.FC = () => {
       setQuestionsList(Array.isArray(data) ? data : []);
       fetchExams();
     } catch (err: any) {
-      setError(err?.response?.data || 'Failed to create question.');
+      console.error("Error creating question:", err);
+      const errorMsg = err?.response?.data?.message || err?.response?.data || err?.message || 'Failed to create question.';
+      setError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
     }
   };
 
@@ -555,6 +555,9 @@ export const ESQ_Manage: React.FC = () => {
 
   const activeExamsCount = safeExams.filter(ex => ex.status !== 2 && (ex as any).status !== 'Archived').length;
   const totalExamsCount = safeExams.length;
+
+  // Backend origin for resolving relative image paths (/uploads/questions/...)
+  const backendOrigin = 'https://localhost:7240';
 
   return (
     <div className="manage-page">
@@ -1128,6 +1131,11 @@ export const ESQ_Manage: React.FC = () => {
                       const displayMarks = target.marks ?? target.Marks ?? target.mark ?? target.Mark ?? target.score ?? target.Score ?? target.points ?? target.Points ?? target.maxMarks ?? target.MaxMarks ?? q.marks ?? q.Marks ?? 5;
                       const displayDesc = target.description || target.Description || target.details || target.Details || q.description || q.Description || '';
                       
+                      const rawImageUrl: string = target.imageUrl || target.ImageUrl || target.imagePath || target.ImagePath || q.imageUrl || q.imagePath || '';
+                      const fullImageUrl = rawImageUrl
+                        ? (rawImageUrl.startsWith('http') ? rawImageUrl : `${backendOrigin}${rawImageUrl.startsWith('/') ? '' : '/'}${rawImageUrl}`)
+                        : '';
+
                       let rawOptions = target.options || target.Options || q.options || q.Options || [];
                       if (typeof rawOptions === 'string') {
                         try { rawOptions = JSON.parse(rawOptions); } catch { rawOptions = []; }
@@ -1143,6 +1151,17 @@ export const ESQ_Manage: React.FC = () => {
                           {displayDesc && (
                             <p style={{ fontSize: '0.9rem', color: '#6b6252', margin: '4px 0 8px 0' }}>{displayDesc}</p>
                           )}
+                          
+                          {fullImageUrl && (
+                            <div style={{ margin: '10px 0' }}>
+                              <img 
+                                src={fullImageUrl} 
+                                alt="Question Attachment" 
+                                style={{ maxWidth: '200px', maxHeight: '150px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.1)' }} 
+                              />
+                            </div>
+                          )}
+
                           {options.length > 0 && (
                             <div style={{ marginTop: '8px', paddingLeft: '12px', borderLeft: '2px solid rgba(55,85,52,0.3)' }}>
                               <div style={{ fontSize: '0.80rem', fontWeight: 600, color: '#375534', marginBottom: '4px' }}>Options:</div>
