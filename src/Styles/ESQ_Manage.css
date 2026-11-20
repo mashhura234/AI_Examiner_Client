@@ -517,6 +517,120 @@ body:has(.manage-page)::after {
   text-align: center;
 }
 
+/* ---------- Question & Option Image Upload and Display Styling ---------- */
+.esq-option-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.esq-option-text-input {
+  flex: 1 1 240px;
+  padding: 9px 14px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+.manage-page label.esq-option-file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 14px;
+  border: 1.5px dashed rgba(217, 169, 63, 0.8);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+  color: #5c4d32;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.manage-page label.esq-option-file-label:hover {
+  background: rgba(255, 240, 200, 0.85);
+  border-color: #dd980b;
+  color: #312102;
+}
+
+.manage-page label.esq-option-file-label input[type='file'] {
+  display: none;
+}
+
+.manage-page label.esq-option-correct-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #2b2a28;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.esq-option-remove-btn {
+  padding: 6px 11px !important;
+  font-size: 0.88rem !important;
+  border-radius: 9px !important;
+  background: rgba(239, 98, 84, 0.16) !important;
+  color: #9b2f25 !important;
+  border: 1px solid rgba(239, 98, 84, 0.45) !important;
+}
+
+.esq-option-remove-btn:hover {
+  background: rgba(239, 98, 84, 0.28) !important;
+}
+
+/* Preview images inside Questions in Selected Set */
+.esq-preview-question-img {
+  display: block;
+  max-width: 240px;
+  max-height: 170px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid rgba(217, 169, 63, 0.45);
+  background: rgba(255, 255, 255, 0.75);
+  padding: 4px;
+  box-shadow: 0 6px 16px rgba(90, 65, 20, 0.12);
+}
+
+.esq-preview-option-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 0.88rem;
+  color: #2b2a28;
+}
+
+.esq-preview-option-item.is-correct {
+  background: rgba(111, 185, 143, 0.24);
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.esq-preview-option-img {
+  max-width: 140px;
+  max-height: 100px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 90, 30, 0.22);
+  background: #ffffff;
+  padding: 3px;
+  box-shadow: 0 4px 10px rgba(90, 65, 20, 0.1);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .manage-dashboard-grid {

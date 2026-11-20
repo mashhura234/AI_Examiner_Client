@@ -90,11 +90,11 @@ export const ESQ_Manage: React.FC = () => {
   const [questionType, setQuestionType] = useState<number>(1);
   const [questionImage, setQuestionImage] = useState<File | null>(null);
 
-  const [questionOptions, setQuestionOptions] = useState<{ title: string; isCorrect: boolean }[]>([
-    { title: '', isCorrect: false },
-    { title: '', isCorrect: false },
-    { title: '', isCorrect: false },
-    { title: '', isCorrect: false },
+  const [questionOptions, setQuestionOptions] = useState<{ title: string; isCorrect: boolean; imageFile?: File | null }[]>([
+    { title: '', isCorrect: false, imageFile: null },
+    { title: '', isCorrect: false, imageFile: null },
+    { title: '', isCorrect: false, imageFile: null },
+    { title: '', isCorrect: false, imageFile: null },
   ]);
 
   const fetchExams = async () => {
@@ -482,18 +482,24 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
-  const handleOptionChange = (index: number, field: 'title' | 'isCorrect', value: string | boolean) => {
+  const handleOptionChange = (
+    index: number,
+    field: 'title' | 'isCorrect' | 'imageFile',
+    value: string | boolean | File | null
+  ) => {
     const updated = [...questionOptions];
     if (field === 'title') {
       updated[index].title = value as string;
-    } else {
+    } else if (field === 'isCorrect') {
       updated[index].isCorrect = value as boolean;
+    } else if (field === 'imageFile') {
+      updated[index].imageFile = value as File | null;
     }
     setQuestionOptions(updated);
   };
 
   const handleAddOptionRow = () => {
-    setQuestionOptions([...questionOptions, { title: '', isCorrect: false }]);
+    setQuestionOptions([...questionOptions, { title: '', isCorrect: false, imageFile: null }]);
   };
 
   const handleRemoveOptionRow = (index: number) => {
@@ -507,15 +513,23 @@ export const ESQ_Manage: React.FC = () => {
     try {
       setError(null);
       const formData = new FormData();
-      formData.append('setId', String(selectedSetId));
-      formData.append('title', questionTitle);
-      formData.append('description', questionDesc.trim() !== '' ? questionDesc : questionTitle);
-      formData.append('marks', String(questionMarks));
-      formData.append('type', String(questionType));
-      
+      formData.append('SetId', String(selectedSetId));
+      formData.append('Title', questionTitle);
+      formData.append('Description', questionDesc.trim() !== '' ? questionDesc : questionTitle);
+      formData.append('Marks', String(questionMarks));
+      formData.append('Type', String(questionType));
+
       if (questionType === 1 || questionType === 2) {
         const validOptions = questionOptions.filter(o => o.title.trim() !== '');
-        formData.append('options', JSON.stringify(validOptions));
+        formData.append(
+          'Options',
+          JSON.stringify(validOptions.map(({ title, isCorrect }) => ({ title, isCorrect })))
+        );
+        validOptions.forEach((opt, idx) => {
+          if (opt.imageFile) {
+            formData.append(`optionImages_${idx}`, opt.imageFile);
+          }
+        });
       }
 
       if (questionImage) {
@@ -531,10 +545,10 @@ export const ESQ_Manage: React.FC = () => {
       setQuestionMarks(5);
       setQuestionImage(null);
       setQuestionOptions([
-        { title: '', isCorrect: false },
-        { title: '', isCorrect: false },
-        { title: '', isCorrect: false },
-        { title: '', isCorrect: false },
+        { title: '', isCorrect: false, imageFile: null },
+        { title: '', isCorrect: false, imageFile: null },
+        { title: '', isCorrect: false, imageFile: null },
+        { title: '', isCorrect: false, imageFile: null },
       ]);
 
       const data = await questionServices.getQuestionsBySet(Number(selectedSetId));
@@ -990,6 +1004,24 @@ export const ESQ_Manage: React.FC = () => {
                 )}
               </div>
 
+              {/* --- QUESTION SETS & AUTHORING CARD --- */}
+              <div className="manage-card">
+                <h3>Question Sets & Authoring</h3>
+                <form onSubmit={handleCreateQuestionSet} className="manage-row" style={{ marginBottom: '20px' }}>
+                  <input type="text" placeholder="New Set Name (e.g. Set A)" value={newSetName} onChange={e => setNewSetName(e.target.value)} required className="manage-grow" />
+                  <button type="submit" className="manage-btn manage-btn--success">Create Set</button>
+                </form>
+
+                {safeSets.length > 0 && (
+                  <div style={{ marginBottom: '10px' }}>
+                    <label><strong>Select Question Set: </strong></label>
+                    <select value={selectedSetId} onChange={e => setSelectedSetId(Number(e.target.value))}>
+                      {safeSets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
               {/* --- AI AGENT QUESTION GENERATOR CARD --- */}
               <div className="manage-card" style={{ background: 'linear-gradient(135deg, rgba(235, 245, 238, 0.85), rgba(245, 240, 230, 0.85))', border: '1px solid rgba(55, 85, 52, 0.3)', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -1026,23 +1058,6 @@ export const ESQ_Manage: React.FC = () => {
                     </button>
                   </div>
                 </form>
-              </div>
-
-              <div className="manage-card">
-                <h3>Question Sets & Authoring</h3>
-                <form onSubmit={handleCreateQuestionSet} className="manage-row" style={{ marginBottom: '20px' }}>
-                  <input type="text" placeholder="New Set Name (e.g. Set A)" value={newSetName} onChange={e => setNewSetName(e.target.value)} required className="manage-grow" />
-                  <button type="submit" className="manage-btn manage-btn--success">Create Set</button>
-                </form>
-
-                {safeSets.length > 0 && (
-                  <div style={{ marginBottom: '10px' }}>
-                    <label><strong>Select Question Set: </strong></label>
-                    <select value={selectedSetId} onChange={e => setSelectedSetId(Number(e.target.value))}>
-                      {safeSets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  </div>
-                )}
               </div>
 
               {/* Manual Question Authoring Form */}
@@ -1084,15 +1099,23 @@ export const ESQ_Manage: React.FC = () => {
                           <button type="button" onClick={handleAddOptionRow} className="manage-btn manage-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.85rem' }}>+ Add Option</button>
                         </div>
                         {questionOptions.map((opt, idx) => (
-                          <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                          <div key={idx} className="esq-option-row">
                             <input 
                               type="text" 
                               placeholder={`Option ${idx + 1} text`} 
                               value={opt.title} 
                               onChange={e => handleOptionChange(idx, 'title', e.target.value)} 
-                              style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.8)' }}
+                              className="esq-option-text-input"
                             />
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                            <label className="esq-option-file-label" title="Attach Option Image (optional)">
+                              <span>{opt.imageFile ? `🖼️ ${opt.imageFile.name}` : '📷 Image'}</span>
+                              <input
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.webp,image/*"
+                                onChange={e => handleOptionChange(idx, 'imageFile', e.target.files ? e.target.files[0] : null)}
+                              />
+                            </label>
+                            <label className="esq-option-correct-label">
                               <input 
                                 type="checkbox" 
                                 checked={opt.isCorrect} 
@@ -1100,7 +1123,7 @@ export const ESQ_Manage: React.FC = () => {
                               /> Correct
                             </label>
                             {questionOptions.length > 2 && (
-                              <button type="button" onClick={() => handleRemoveOptionRow(idx)} className="manage-btn manage-btn--danger" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>&times;</button>
+                              <button type="button" onClick={() => handleRemoveOptionRow(idx)} className="manage-btn manage-btn--danger esq-option-remove-btn">&times;</button>
                             )}
                           </div>
                         ))}
@@ -1109,7 +1132,7 @@ export const ESQ_Manage: React.FC = () => {
 
                     <div>
                       <label>Attach Image (optional)</label>
-                      <input type="file" onChange={e => setQuestionImage(e.target.files ? e.target.files[0] : null)} />
+                      <input type="file" accept=".jpg,.jpeg,.png,.webp,image/*" onChange={e => setQuestionImage(e.target.files ? e.target.files[0] : null)} />
                     </div>
 
                     <button type="submit" className="manage-btn manage-btn--primary" style={{ marginTop: '15px' }}>Save Question</button>
@@ -1157,7 +1180,7 @@ export const ESQ_Manage: React.FC = () => {
                               <img 
                                 src={fullImageUrl} 
                                 alt="Question Attachment" 
-                                style={{ maxWidth: '200px', maxHeight: '150px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.1)' }} 
+                                className="esq-preview-question-img"
                               />
                             </div>
                           )}
@@ -1170,9 +1193,21 @@ export const ESQ_Manage: React.FC = () => {
                                   if (!opt) return null;
                                   const optTitle = typeof opt === 'string' ? opt : (opt.title || opt.Title || opt.text || opt.Text || opt.name || opt.Name || '');
                                   const isCorrect = typeof opt === 'object' ? (opt.isCorrect ?? opt.IsCorrect ?? false) : false;
+                                  const rawOptImg: string = typeof opt === 'object' ? (opt.imageUrl || opt.ImageUrl || opt.imagePath || opt.ImagePath || '') : '';
+                                  const fullOptImg = rawOptImg
+                                    ? (rawOptImg.startsWith('http') ? rawOptImg : `${backendOrigin}${rawOptImg.startsWith('/') ? '' : '/'}${rawOptImg}`)
+                                    : '';
+
                                   return (
-                                    <li key={opt.id || opt.Id || optIdx} style={{ fontSize: '0.85rem', color: isCorrect ? '#2e7d32' : '#2b2a28', fontWeight: isCorrect ? 'bold' : 'normal' }}>
-                                      {String.fromCharCode(65 + optIdx)}. {optTitle} {isCorrect && '✓ (Correct)'}
+                                    <li key={opt.id || opt.Id || optIdx} className={`esq-preview-option-item ${isCorrect ? 'is-correct' : ''}`}>
+                                      <span>{String.fromCharCode(65 + optIdx)}. {optTitle} {isCorrect && '✓ (Correct)'}</span>
+                                      {fullOptImg && (
+                                        <img
+                                          src={fullOptImg}
+                                          alt={`Option ${String.fromCharCode(65 + optIdx)}`}
+                                          className="esq-preview-option-img"
+                                        />
+                                      )}
                                     </li>
                                   );
                                 })}
