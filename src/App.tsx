@@ -31,9 +31,12 @@ function AppContent() {
     setIsAuthenticated(CommonService.IsAuthenticated());
   }, [location.pathname]);
 
+  // Hide the left sidebar only when inside the Exam Hall
+  const isExamHall = location.pathname.startsWith('/exam-hall');
+
   return (
     <>
-      {isAuthenticated && <Navbar />}
+      {isAuthenticated && !isExamHall && <Navbar />}
       <Routes>
         {/* Active Application Routes */}
         <Route path="/" element={<Home />} />

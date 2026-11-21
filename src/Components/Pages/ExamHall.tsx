@@ -5,22 +5,26 @@ import { AuthService } from '../../Services/authServices';
 import type { ExamPaperResponse, SavedAnswerResponseDto, SaveAnswerDto } from '../../Models/assessmentPortalModel';
 import '../../Styles/ExamHall.css';
 
+const DEFAULT_DURATION_SECONDS = 5400; // Fallback: 1.5 hours in seconds
+
 export const ExamHall: React.FC = () => {
   const { participantId } = useParams<{ participantId: string }>();
   const navigate = useNavigate();
 
   const [examPaper, setExamPaper] = useState<ExamPaperResponse | null>(null);
+  const [examTitle, setExamTitle] = useState<string>('');
+  const [setName, setSetName] = useState<string>('');
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [answersMap, setAnswersMap] = useState<{ [questionId: number]: { optionId?: number | null; description?: string } }>({});
   const [savedStatusMap, setSavedStatusMap] = useState<{ [questionId: number]: boolean }>({});
   
   const [candidateName, setCandidateName] = useState<string>('Student');
-  const [timeRemaining, setTimeRemaining] = useState<number>(5400); // Default 1.5 hours in seconds
+  const [timeRemaining, setTimeRemaining] = useState<number>(DEFAULT_DURATION_SECONDS);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Fetch Candidate Name & Exam Paper
+  // Fetch Candidate Name, Exam Title, Set Name, StartDate Guard, Dynamic EndDate Timer & Exam Paper
   useEffect(() => {
     const initExamHall = async () => {
       try {
@@ -34,8 +38,47 @@ export const ExamHall: React.FC = () => {
           setCandidateName(fullName);
         }
 
-        // Fetch exam paper and existing answers
         const pId = Number(participantId);
+
+        // Lookup exam details from assigned exams using participantId
+        try {
+          const myExams = await assessmentPortalServices.getMyExams();
+          const matchedExam = Array.isArray(myExams)
+            ? myExams.find(ex => Number(ex.participantId) === pId)
+            : undefined;
+
+          if (matchedExam?.examName) {
+            setExamTitle(matchedExam.examName);
+          }
+          if (matchedExam?.setName) {
+            setSetName(matchedExam.setName);
+          }
+
+          // Block entry if current time is before the scheduled exam startDate
+          if (matchedExam?.startDate) {
+            const startTimestamp = new Date(matchedExam.startDate).getTime();
+            if (!Number.isNaN(startTimestamp) && Date.now() < startTimestamp) {
+              setError(
+                `This exam has not started yet. Scheduled start time: ${new Date(startTimestamp).toLocaleString()}`
+              );
+              setLoading(false);
+              return;
+            }
+          }
+
+          // Calculate remaining seconds from matchedExam.endDate
+          if (matchedExam?.endDate) {
+            const endTimestamp = new Date(matchedExam.endDate).getTime();
+            if (!Number.isNaN(endTimestamp)) {
+              const remainingSeconds = Math.floor((endTimestamp - Date.now()) / 1000);
+              setTimeRemaining(remainingSeconds > 0 ? remainingSeconds : DEFAULT_DURATION_SECONDS);
+            }
+          }
+        } catch {
+          // Ignore if exam list lookup fails so exam hall still loads
+        }
+
+        // Fetch exam paper and existing answers
         const paper = await assessmentPortalServices.getExamPaper(pId);
         setExamPaper(paper);
 
@@ -82,6 +125,12 @@ export const ExamHall: React.FC = () => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const formattedSetLabel = setName
+    ? /^set\b/i.test(setName.trim())
+      ? setName.trim()
+      : `Set: ${setName.trim()}`
+    : '';
+
   const currentQuestion = examPaper?.questions[currentIndex];
 
   const handleAnswerChange = (questionId: number, optionId?: number | null, description?: string) => {
@@ -113,7 +162,7 @@ export const ExamHall: React.FC = () => {
     }
   };
 
- const handleAutoSubmit = async () => {
+  const handleAutoSubmit = async () => {
     if (!participantId) return;
     try {
       const pId = Number(participantId);
@@ -167,6 +216,7 @@ export const ExamHall: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
   if (loading) {
     return (
       <div className="exam-hall-loading">
@@ -197,6 +247,17 @@ export const ExamHall: React.FC = () => {
         <div className="exam-brand">
           <span className="exam-brand-icon">📖</span>
           <h3>AI EXAMINER</h3>
+          {examTitle && (
+            <>
+              <span className="exam-title-divider">|</span>
+              <span className="exam-header-title" title={examTitle}>{examTitle}</span>
+            </>
+          )}
+          {formattedSetLabel && (
+            <span className="exam-set-badge" title={formattedSetLabel}>
+              {formattedSetLabel}
+            </span>
+          )}
         </div>
 
         <div className="exam-timer-box">

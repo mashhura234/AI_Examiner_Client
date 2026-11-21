@@ -4,11 +4,44 @@ import { assessmentPortalServices } from '../../Services/assessmentPortalService
 import { examServices } from '../../Services/examServices';
 import { syllabusServices } from '../../Services/syllabusServices';
 
+// Matches AI_Examiner.Models.Enums.ParticipantStatus
+const PARTICIPANT_STATUS = {
+  Invited: 1,
+  Accepted: 2,
+  Attended: 3,   // In-progress
+  Completed: 4,  // Submitted
+  Suspended: 5,  // Declined / Suspended
+  Absent: 6,
+} as const;
+
+// Matches AI_Examiner.Models.Enums.ResultStatus
+const RESULT_STATUS = {
+  Inactive: 1,
+  Processing: 2,
+  Published: 3,
+  Suspended: 4,
+} as const;
+
+const formatCountdown = (diffMs: number): string => {
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const hh = String(hours).padStart(2, '0');
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+
+  return days > 0 ? `${days}d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
+};
+
 export const ExamAssessment: React.FC = () => {
   const [assignedExams, setAssignedExams] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   const [examSyllabusMap, setExamSyllabusMap] = useState<{ [key: string]: string }>({});
   const [examAssignedByMap, setExamAssignedByMap] = useState<{ [key: string]: string }>({});
@@ -16,6 +49,14 @@ export const ExamAssessment: React.FC = () => {
   // Result Modal State
   const [isResultModalOpen, setIsResultModalOpen] = useState<boolean>(false);
   const [examResultData, setExamResultData] = useState<any>(null);
+
+  // Live 1-second tick for pre-start countdowns
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchAssignedExams = async () => {
     try {
@@ -58,7 +99,7 @@ export const ExamAssessment: React.FC = () => {
       const syllabusTempMap: { [key: string]: string } = {};
       const assignedByTempMap: { [key: string]: string } = {};
 
-    for (const item of examsList) {
+      for (const item of examsList) {
         const examObj = item.exam || item;
         const initialExamId = item.examId || examObj.id || item.id || item.ExamId;
         const examName = item.examName || item.ExamName || examObj.name;
@@ -77,8 +118,8 @@ export const ExamAssessment: React.FC = () => {
 
         // 2. If not embedded, fetch via master exams or syllabus service
         if (!resolvedTopic) {
-          const foundMasterExam = masterExams.find(e => 
-            e.id === initialExamId || 
+          const foundMasterExam = masterExams.find(e =>
+            e.id === initialExamId ||
             (e.name && examName && e.name.toLowerCase() === examName.toLowerCase())
           );
           const targetExamId = foundMasterExam?.id || initialExamId;
@@ -158,7 +199,12 @@ export const ExamAssessment: React.FC = () => {
     }
   };
 
-  const handleStartExam = async (participantId: number) => {
+  const handleStartExam = async (participantId: number, startDateObj: Date | null) => {
+    if (startDateObj && !isNaN(startDateObj.getTime()) && Date.now() < startDateObj.getTime()) {
+      setError(`Entry blocked until exam starts (${startDateObj.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}).`);
+      return;
+    }
+
     try {
       setError(null);
       const res = await axios.post(`/Participants/start/${participantId}`);
@@ -287,13 +333,21 @@ export const ExamAssessment: React.FC = () => {
 
               const assignedByUser = examAssignedByMap[examId] || examAssignedByMap[participantId] || 'Faculty / Admin';
 
-              const status = item.participantStatus ?? item.ParticipantStatus ?? item.status ?? examObj.status ?? 1;
-              const resultStatus = item.resultStatus ?? item.ResultStatus ?? 0;
+              const status = item.participantStatus ?? item.ParticipantStatus ?? item.status ?? examObj.status ?? PARTICIPANT_STATUS.Invited;
+              const resultStatus = item.resultStatus ?? item.ResultStatus ?? RESULT_STATUS.Inactive;
 
-              const isInvited = status === 1;
-              const isAccepted = status === 2;
-              const isCompleted = status === 3 || status === 4 || resultStatus === 2;
-              const isExpired = endDateObj && endDateObj.getTime() < Date.now();
+              const isInvited = status === PARTICIPANT_STATUS.Invited;
+              const isAcceptedOrAttended =
+                status === PARTICIPANT_STATUS.Accepted || status === PARTICIPANT_STATUS.Attended;
+              const isCompleted = status === PARTICIPANT_STATUS.Completed;
+              const isSuspended = status === PARTICIPANT_STATUS.Suspended;
+              const isAbsent = status === PARTICIPANT_STATUS.Absent;
+              const canViewResult = isCompleted && resultStatus === RESULT_STATUS.Published;
+              const isExpired = Boolean(endDateObj && !isNaN(endDateObj.getTime()) && endDateObj.getTime() < nowMs);
+              const timeUntilStartMs = startDateObj && !isNaN(startDateObj.getTime())
+                ? startDateObj.getTime() - nowMs
+                : 0;
+              const isWaitingForStart = timeUntilStartMs > 0;
 
               return (
                 <div 
@@ -313,7 +367,13 @@ export const ExamAssessment: React.FC = () => {
                   <div style={{ position: 'absolute', top: '20px', right: '24px' }}>
                     {isCompleted ? (
                       <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#2e7d32', background: 'rgba(46, 125, 50, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>Completed</span>
-                    ) : isAccepted ? (
+                    ) : isSuspended ? (
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#dc3545', background: 'rgba(220, 53, 69, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>Suspended</span>
+                    ) : isAbsent ? (
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#dc3545', background: 'rgba(220, 53, 69, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>Absent</span>
+                    ) : status === PARTICIPANT_STATUS.Attended ? (
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1d4ed8', background: 'rgba(29, 78, 216, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>In Progress</span>
+                    ) : status === PARTICIPANT_STATUS.Accepted ? (
                       <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#2e7d32', background: 'rgba(46, 125, 50, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>Accepted</span>
                     ) : isExpired ? (
                       <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#dc3545', background: 'rgba(220, 53, 69, 0.1)', padding: '4px 12px', borderRadius: '20px' }}>Expired</span>
@@ -337,8 +397,8 @@ export const ExamAssessment: React.FC = () => {
                   </div>
 
                   {/* Actions */}
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                    {isInvited && !isExpired && !isCompleted && (
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '8px' }}>
+                    {isInvited && !isExpired && !isCompleted && !isSuspended && !isAbsent && (
                       <>
                         <button 
                           onClick={() => handleAccept(participantId)}
@@ -355,16 +415,38 @@ export const ExamAssessment: React.FC = () => {
                       </>
                     )}
 
-                    {isAccepted && !isExpired && !isCompleted && (
-                      <button 
-                        onClick={() => handleStartExam(participantId)}
-                        style={{ background: '#2e7d32', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
-                      >
-                        🚀 Start Exam / Enter Hall
-                      </button>
+                    {isAcceptedOrAttended && !isExpired && !isCompleted && (
+                      isWaitingForStart ? (
+                        <div
+                          style={{
+                            background: 'rgba(217, 119, 6, 0.12)',
+                            border: '1px solid rgba(217, 119, 6, 0.35)',
+                            color: '#b45309',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            fontWeight: 600,
+                            fontSize: '0.9rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          <span>🔒 Entry Locked — Starts in:</span>
+                          <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+                            {formatCountdown(timeUntilStartMs)}
+                          </span>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => handleStartExam(participantId, startDateObj)}
+                          style={{ background: '#2e7d32', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+                        >
+                          🚀 Start Exam / Enter Hall
+                        </button>
+                      )
                     )}
 
-                    {isCompleted && (
+                    {canViewResult && (
                       <button 
                         onClick={() => handleViewResult(participantId)}
                         style={{ background: '#375534', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
@@ -373,7 +455,13 @@ export const ExamAssessment: React.FC = () => {
                       </button>
                     )}
 
-                    {isExpired && !isCompleted && (
+                    {isCompleted && !canViewResult && (
+                      <div style={{ fontSize: '0.85rem', color: '#6b6252', fontStyle: 'italic' }}>
+                        Submitted. Result is not published yet.
+                      </div>
+                    )}
+
+                    {isExpired && !isCompleted && !isSuspended && !isAbsent && (
                       <div style={{ fontSize: '0.85rem', color: '#dc3545', fontStyle: 'italic' }}>
                         Exam session expired. Entry is closed.
                       </div>

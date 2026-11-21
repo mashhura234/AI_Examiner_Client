@@ -1,5 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap');
 
+/* ---------- Full-Width Override When Navbar Is Hidden ---------- */
+body:has(.exam-hall-container),
+body:has(.exam-hall-loading),
+body:has(.exam-hall-error),
+body:has(.exam-hall-container) #root,
+body:has(.exam-hall-loading) #root,
+body:has(.exam-hall-error) #root {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
 /* ---------- Background & Shell ---------- */
 body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hall-error) {
   background:
@@ -12,10 +25,13 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 
 .exam-hall-container {
   min-height: 100vh;
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
   display: flex;
   flex-direction: column;
   color: #2b2a28;
-  padding: 20px;
+  padding: 20px 28px 36px !important;
   box-sizing: border-box;
 }
 
@@ -24,6 +40,8 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
+  width: 100%;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.45) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -31,6 +49,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   border-radius: 20px;
   padding: 14px 28px;
   margin-bottom: 20px;
+  box-sizing: border-box;
   box-shadow: 0 12px 32px rgba(90, 65, 20, 0.12);
 }
 
@@ -38,6 +57,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .exam-brand-icon {
@@ -49,14 +69,42 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   font-size: 1.25rem;
   font-weight: 700;
   color: #2b2a28;
+  white-space: nowrap;
+}
+
+.exam-title-divider {
+  color: rgba(92, 77, 50, 0.35);
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+
+.exam-header-title {
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: #5c4d32;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.exam-set-badge {
+  background: rgba(242, 178, 31, 0.22);
+  color: #7a5804;
+  border: 1px solid rgba(214, 150, 10, 0.35);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .exam-timer-box {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: rgba(255, 255, 255, 0.6);
-  padding: 6px 20px;
+  background: rgba(255, 255, 255, 0.65);
+  padding: 6px 22px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.9);
 }
@@ -83,6 +131,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 .candidate-info {
   font-size: 0.95rem;
   color: #4a4132;
+  white-space: nowrap;
 }
 
 .exam-submit-btn {
@@ -93,6 +142,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   border-radius: 12px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
   box-shadow: 0 6px 16px rgba(214, 150, 10, 0.3);
   transition: transform 0.15s ease, filter 0.15s ease;
 }
@@ -105,22 +155,24 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 /* ---------- Body Grid ---------- */
 .exam-body-grid {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 20px;
+  width: 100%;
+  align-items: stretch;
   flex: 1;
 }
 
 /* ---------- Sidebar (Question Navigator) ---------- */
 .exam-sidebar {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.42) 100%);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 24px;
   padding: 20px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   box-shadow: 0 16px 40px rgba(90, 65, 20, 0.12);
-  height: fit-content;
 }
 
 .sidebar-title {
@@ -142,7 +194,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 48px;
+  height: 46px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.9);
   cursor: pointer;
@@ -164,7 +216,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 
 /* States */
 .q-nav-btn.unanswered {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.55);
   color: #6b6252;
 }
 
@@ -201,7 +253,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .legend-box.answered {
@@ -214,7 +266,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 }
 
 .legend-box.unanswered {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.55);
 }
 
 /* ---------- Main Content Area ---------- */
@@ -232,7 +284,9 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   box-shadow: 0 20px 50px rgba(90, 65, 20, 0.14);
   display: flex;
   flex-direction: column;
-  min-height: 500px;
+  min-height: 460px;
+  height: 100%;
+  box-sizing: border-box;
   justify-content: space-between;
 }
 
@@ -264,7 +318,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   font-weight: 600;
   color: #2b2a28;
   line-height: 1.5;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .question-subtext {
@@ -284,7 +338,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 30px;
+  margin-bottom: 28px;
 }
 
 .option-label {
@@ -292,7 +346,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
   align-items: center;
   gap: 14px;
   padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 14px;
   cursor: pointer;
@@ -300,7 +354,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 }
 
 .option-label:hover {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   border-color: #f2b632;
 }
 
@@ -329,14 +383,14 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 
 /* Descriptive Textarea & Toolbar */
 .descriptive-container {
-  margin-bottom: 30px;
+  margin-bottom: 28px;
 }
 
 .editor-toolbar {
   display: flex;
   gap: 8px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-bottom: none;
   border-top-left-radius: 12px;
@@ -363,8 +417,9 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 
 .exam-textarea {
   width: 100%;
+  min-height: 150px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.85);
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
@@ -393,7 +448,7 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 
 .exam-nav-btn {
   padding: 11px 24px;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.95);
   border-radius: 12px;
   font-weight: 700;
@@ -456,5 +511,14 @@ body:has(.exam-hall-container), body:has(.exam-hall-loading), body:has(.exam-hal
 @media (max-width: 900px) {
   .exam-body-grid {
     grid-template-columns: 1fr;
+  }
+
+  .exam-header {
+    flex-wrap: wrap;
+  }
+
+  .exam-question-card {
+    min-height: auto;
+    height: auto;
   }
 }

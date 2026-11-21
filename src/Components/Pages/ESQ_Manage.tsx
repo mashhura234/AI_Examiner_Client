@@ -12,7 +12,9 @@ import type { QuestionSet, QuestionWithOptionsResponse } from '../../Models/ques
 
 import '../../Styles/ESQ_Manage.css';
 
+// **COMPONENT: ESQ_MANAGE MAIN CONTAINER**
 export const ESQ_Manage: React.FC = () => {
+  // **VIEW, TAB & FEEDBACK STATE**
   const [viewMode, setViewMode] = useState<'list' | 'workspace'>('list');
   const [activeTab, setActiveTab] = useState<'exams' | 'syllabus' | 'grades' | 'questions'>('exams');
   const [editingExamId, setEditingExamId] = useState<number | null>(null);
@@ -24,7 +26,7 @@ export const ESQ_Manage: React.FC = () => {
   const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState<boolean>(false);
   const [isAiSuccessModalOpen, setIsAiSuccessModalOpen] = useState<boolean>(false);
 
-  // --- 1. EXAMS STATE WITH PARTICIPANT MAPPING ---
+  // **1. EXAMS STATE WITH PARTICIPANT MAPPING**
   const [exams, setExams] = useState<Exam[]>([]);
   const [examSyllabiMap, setExamSyllabiMap] = useState<{ [examId: number]: string }>({});
   const [examParticipantsMap, setExamParticipantsMap] = useState<{ [examId: number]: number }>({});
@@ -41,7 +43,7 @@ export const ESQ_Manage: React.FC = () => {
     status: 1,
   });
 
-  // --- 2. SYLLABUS STATE ---
+  // **2. SYLLABUS STATE**
   const [selectedExamForSyllabus, setSelectedExamForSyllabus] = useState<number | ''>('');
   const [syllabusList, setSyllabusList] = useState<Syllabus[]>([]);
   const [syllabusForm, setSyllabusForm] = useState<CreateSyllabusRequest>({
@@ -54,7 +56,7 @@ export const ESQ_Manage: React.FC = () => {
     status: 1,
   });
 
-  // --- 3. GRADES STATE ---
+  // **3. GRADES STATE**
   const [selectedExamForGrades, setSelectedExamForGrades] = useState<number | ''>('');
   const [gradesList, setGradesList] = useState<Grade[]>([]);
   const [standardGradesList, setStandardGradesList] = useState<Grade[]>([]);
@@ -66,7 +68,7 @@ export const ESQ_Manage: React.FC = () => {
     isPassGrade: true,
   });
 
-  // --- 4. QUESTIONS STATE ---
+  // **4. QUESTIONS & SETS STATE**
   const [selectedExamForQuestions, setSelectedExamForQuestions] = useState<number | ''>('');
   const [sets, setSets] = useState<QuestionSet[]>([]);
   const [selectedSetId, setSelectedSetId] = useState<number | ''>('');
@@ -75,11 +77,11 @@ export const ESQ_Manage: React.FC = () => {
   const [questionExamSyllabi, setQuestionExamSyllabi] = useState<Syllabus[]>([]);
   const [showSyllabusRef, setShowSyllabusRef] = useState<boolean>(true);
 
-  // --- AI GENERATION STATE ---
+  // **AI QUESTION GENERATION STATE**
   const [aiPrompt, setAiPrompt] = useState<string>('');
   const [aiLoading, setAiLoading] = useState<boolean>(false);
 
-  // --- 5. DASHBOARD STATS STATE ---
+  // **5. DASHBOARD STATS & QUESTION AUTHORING STATE**
   const [totalSyllabiCount, setTotalSyllabiCount] = useState<number>(0);
   const [totalQuestionsCount, setTotalQuestionsCount] = useState<number>(0);
   
@@ -97,6 +99,7 @@ export const ESQ_Manage: React.FC = () => {
     { title: '', isCorrect: false, imageFile: null },
   ]);
 
+  // **FETCH EXAMS, SYLLABI SUMMARY & PARTICIPANT COUNTS**
   const fetchExams = async () => {
     try {
       setLoading(true);
@@ -150,6 +153,7 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
+  // **INITIAL EXAMS & STANDARD GRADES EFFECT**
   useEffect(() => {
     fetchExams();
     gradeServices.getStandardGrades()
@@ -157,6 +161,7 @@ export const ESQ_Manage: React.FC = () => {
       .catch(() => setStandardGradesList([]));
   }, []);
 
+  // **EXAM DELETE, ARCHIVE & EDIT HANDLERS**
   const handleDeleteExam = async (examId: number) => {
     if (!window.confirm('Are you sure you want to delete this archived exam?')) return;
     try {
@@ -198,6 +203,7 @@ export const ESQ_Manage: React.FC = () => {
     setActiveTab('exams');
   };
 
+  // **DASHBOARD TOTAL SYLLABI & QUESTIONS COUNTER EFFECT**
   useEffect(() => {
     const safeExamsList = Array.isArray(exams) ? exams : [];
     if (!safeExamsList.length) {
@@ -245,6 +251,7 @@ export const ESQ_Manage: React.FC = () => {
     };
   }, [exams]);
 
+  // **FETCH SYLLABUS FOR SELECTED SYLLABUS EXAM EFFECT**
   useEffect(() => {
     if (!selectedExamForSyllabus) return;
     const fetchSyllabus = async () => {
@@ -258,6 +265,7 @@ export const ESQ_Manage: React.FC = () => {
     fetchSyllabus();
   }, [selectedExamForSyllabus]);
 
+  // **FETCH SYLLABUS REFERENCE FOR SELECTED QUESTION EXAM EFFECT**
   useEffect(() => {
     if (!selectedExamForQuestions) {
       setQuestionExamSyllabi([]);
@@ -274,6 +282,7 @@ export const ESQ_Manage: React.FC = () => {
     fetchQuestionSyllabi();
   }, [selectedExamForQuestions]);
 
+  // **CREATE SYLLABUS TOPIC HANDLER**
   const handleCreateSyllabus = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExamForSyllabus) return alert('Select an exam first');
@@ -298,6 +307,7 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
+  // **FETCH GRADES FOR SELECTED EXAM EFFECT**
   useEffect(() => {
     if (!selectedExamForGrades) return;
     const fetchGrades = async () => {
@@ -311,6 +321,7 @@ export const ESQ_Manage: React.FC = () => {
     fetchGrades();
   }, [selectedExamForGrades]);
 
+  // **CREATE OR UPDATE EXAM GRADE BOUNDARIES HANDLER**
   const handleCreateGrade = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExamForGrades) return alert('Select an exam first');
@@ -347,6 +358,7 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
+  // **FETCH QUESTION SETS FOR SELECTED EXAM EFFECT**
   useEffect(() => {
     if (!selectedExamForQuestions) return;
     const fetchSets = async () => {
@@ -367,6 +379,7 @@ export const ESQ_Manage: React.FC = () => {
     fetchSets();
   }, [selectedExamForQuestions]);
 
+  // **FETCH QUESTIONS FOR SELECTED SET EFFECT**
   useEffect(() => {
     if (!selectedSetId) return;
     const fetchQuestions = async () => {
@@ -380,6 +393,7 @@ export const ESQ_Manage: React.FC = () => {
     fetchQuestions();
   }, [selectedSetId]);
 
+  // **CREATE OR UPDATE EXAM HANDLER**
   const handleCreateExam = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -420,6 +434,7 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
+  // **CREATE QUESTION SET HANDLER**
   const handleCreateQuestionSet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExamForQuestions || !newSetName) return;
@@ -441,6 +456,7 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
+  // **AI QUESTION GENERATOR HANDLER**
   const handleAiGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExamForQuestions || !selectedSetId) {
@@ -482,6 +498,7 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
+  // **OPTION ROW & OPTION IMAGE STATE HANDLERS**
   const handleOptionChange = (
     index: number,
     field: 'title' | 'isCorrect' | 'imageFile',
@@ -506,6 +523,7 @@ export const ESQ_Manage: React.FC = () => {
     setQuestionOptions(questionOptions.filter((_, i) => i !== index));
   };
 
+  // **CREATE QUESTION WITH MAIN & PER-OPTION IMAGE FORM-DATA HANDLER**
   const handleCreateQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSetId) return alert('Select a question set first.');
@@ -561,6 +579,7 @@ export const ESQ_Manage: React.FC = () => {
     }
   };
 
+  // **SAFE DERIVED DATA & BACKEND IMAGE ORIGIN**
   const safeExams = Array.isArray(exams) ? exams : [];
   const safeSyllabusList = Array.isArray(syllabusList) ? syllabusList : [];
   const safeGradesList = Array.isArray(gradesList) ? gradesList : [];
@@ -575,12 +594,13 @@ export const ESQ_Manage: React.FC = () => {
 
   return (
     <div className="manage-page">
+      {/* **PAGE HEADER & STATUS ALERTS** */}
       <h2>Exam & Syllabus Management</h2>
 
       {message && <p className="manage-success">{message}</p>}
       {error && <p className="manage-error">{error}</p>}
 
-      {/* --- AI GENERATION SUCCESS POP-UP MODAL --- */}
+      {/* **AI GENERATION SUCCESS POP-UP MODAL** */}
       {isAiSuccessModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ textAlign: 'center', padding: '30px', maxWidth: '420px' }}>
@@ -600,10 +620,10 @@ export const ESQ_Manage: React.FC = () => {
         </div>
       )}
 
-      {/* --- VIEW 1: EXAM LIST VIEW --- */}
+      {/* **VIEW 1: EXAM LIST DASHBOARD VIEW** */}
       {viewMode === 'list' && (
         <div style={{ width: '100%' }}>
-          {/* Two Small Cards Placed Up Above the Table */}
+          {/* **DASHBOARD SUMMARY CARDS** */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
             <div className="sidebar-widget" style={{ margin: 0 }}>
               <h4>Quick Stats & Resources</h4>
@@ -630,6 +650,7 @@ export const ESQ_Manage: React.FC = () => {
             </div>
           </div>
 
+          {/* **ALL EXAMS SECTION HEADER & ADD BUTTON** */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ margin: 0 }}>All Exams</h3>
             <button 
@@ -655,6 +676,7 @@ export const ESQ_Manage: React.FC = () => {
             </button>
           </div>
 
+          {/* **ALL EXAMS TABLE WITH DYNAMIC DURATION** */}
           {loading ? <p>Loading exams...</p> : (
             <div className="manage-table-container" style={{ width: '100%', overflowX: 'auto' }}>
               <table className="exam-table" style={{ width: '100%' }}>
@@ -698,6 +720,24 @@ export const ESQ_Manage: React.FC = () => {
                     const endTimeStr = endDateObj && !isNaN(endDateObj.getTime()) ? endDateObj.toLocaleTimeString([], { timeStyle: 'short' }) : '';
                     const timeRangeDisplay = startTimeStr && endTimeStr ? `${startTimeStr} – ${endTimeStr}` : (startTimeStr || 'N/A');
 
+                    let durationDisplay = (ex as any).duration || 'N/A';
+                    if (startDateObj && endDateObj && !isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
+                      const diffMs = endDateObj.getTime() - startDateObj.getTime();
+                      if (diffMs > 0) {
+                        const totalMinutes = Math.round(diffMs / 60000);
+                        const days = Math.floor(totalMinutes / (60 * 24));
+                        const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+                        const minutes = totalMinutes % 60;
+
+                        const parts: string[] = [];
+                        if (days > 0) parts.push(`${days} day${days > 1 ? 's' : ''}`);
+                        if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+                        if (minutes > 0) parts.push(`${minutes} min${minutes > 1 ? 's' : ''}`);
+
+                        durationDisplay = parts.length > 0 ? parts.join(' ') : '0 mins';
+                      }
+                    }
+
                     const totalMarks = ex.maxMarks ?? (ex as any).totalMarks ?? 100;
                     const totalQuestions = (ex as any).totalQuestions ?? (ex as any).questionsCount ?? (ex.maxMarks ? Math.round(ex.maxMarks / 5) : 20);
 
@@ -716,7 +756,7 @@ export const ESQ_Manage: React.FC = () => {
                         <td>{syllabusTitle}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>{dateRangeDisplay}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>{timeRangeDisplay}</td>
-                        <td>{(ex as any).duration || '2 hours'}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{durationDisplay}</td>
                         <td>{totalMarks}</td>
                         <td style={{ textAlign: 'center' }}>{totalQuestions}</td>
                         <td>
@@ -765,7 +805,7 @@ export const ESQ_Manage: React.FC = () => {
         </div>
       )}
 
-      {/* --- VIEW 2: SUB-TABS WORKSPACE --- */}
+      {/* **VIEW 2: WORKSPACE SUB-TABS CONTAINER** */}
       {viewMode === 'workspace' && (
         <div>
           <button 
@@ -775,6 +815,7 @@ export const ESQ_Manage: React.FC = () => {
             &larr; Back to All Exams
           </button>
 
+          {/* **SUB-TABS NAVIGATION BAR** */}
           <div className="esq-subtabs">
             <button 
               onClick={() => setActiveTab('exams')}
@@ -798,6 +839,7 @@ export const ESQ_Manage: React.FC = () => {
             </button>
           </div>
 
+          {/* **TAB 1: EXAM CONFIGURATOR FORM** */}
           {activeTab === 'exams' && (
             <div className="manage-card">
               <h3>{editingExamId ? 'Edit Exam' : 'Exam Configurator'}</h3>
@@ -837,6 +879,7 @@ export const ESQ_Manage: React.FC = () => {
             </div>
           )}
 
+          {/* **TAB 2: SYLLABUS MANAGEMENT & MODAL** */}
           {activeTab === 'syllabus' && (
             <div>
               <div className="manage-field">
@@ -913,6 +956,7 @@ export const ESQ_Manage: React.FC = () => {
             </div>
           )}
 
+          {/* **TAB 3: GRADE SCALE SETTINGS** */}
           {activeTab === 'grades' && (
             <div>
               <div className="manage-field">
@@ -967,6 +1011,7 @@ export const ESQ_Manage: React.FC = () => {
             </div>
           )}
 
+          {/* **TAB 4: QUESTIONS, SETS, AI GENERATOR & PREVIEW** */}
           {activeTab === 'questions' && (
             <div>
               <div className="manage-field">
@@ -976,7 +1021,7 @@ export const ESQ_Manage: React.FC = () => {
                 </select>
               </div>
 
-              {/* --- SYLLABUS REFERENCE GUIDE FOR FACULTY --- */}
+              {/* **SYLLABUS REFERENCE GUIDE CARD** */}
               <div className="manage-card" style={{ background: 'rgba(245, 240, 230, 0.7)', marginBottom: '20px', border: '1px solid rgba(120,90,30,0.2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowSyllabusRef(!showSyllabusRef)}>
                   <h4 style={{ margin: 0, color: '#375534' }}>📚 Syllabus Reference Guide (For Question Authoring)</h4>
@@ -1004,7 +1049,7 @@ export const ESQ_Manage: React.FC = () => {
                 )}
               </div>
 
-              {/* --- QUESTION SETS & AUTHORING CARD --- */}
+              {/* **QUESTION SETS & AUTHORING CARD** */}
               <div className="manage-card">
                 <h3>Question Sets & Authoring</h3>
                 <form onSubmit={handleCreateQuestionSet} className="manage-row" style={{ marginBottom: '20px' }}>
@@ -1022,7 +1067,7 @@ export const ESQ_Manage: React.FC = () => {
                 )}
               </div>
 
-              {/* --- AI AGENT QUESTION GENERATOR CARD --- */}
+              {/* **AI AGENT QUESTION GENERATOR CARD** */}
               <div className="manage-card" style={{ background: 'linear-gradient(135deg, rgba(235, 245, 238, 0.85), rgba(245, 240, 230, 0.85))', border: '1px solid rgba(55, 85, 52, 0.3)', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <h3 style={{ margin: 0, color: '#375534' }}>✨ AI Agent Question Generator</h3>
@@ -1060,7 +1105,7 @@ export const ESQ_Manage: React.FC = () => {
                 </form>
               </div>
 
-              {/* Manual Question Authoring Form */}
+              {/* **MANUAL QUESTION AUTHORING FORM** */}
               <div className="manage-card">
                 <h3>Manual Question Authoring</h3>
                 {!selectedSetId ? (
@@ -1092,6 +1137,7 @@ export const ESQ_Manage: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* **OPTIONS & PER-OPTION IMAGE UPLOAD ROWS** */}
                     {(questionType === 1 || questionType === 2) && (
                       <div style={{ margin: '15px 0', padding: '16px', background: 'rgba(255,255,255,0.45)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.7)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -1130,6 +1176,7 @@ export const ESQ_Manage: React.FC = () => {
                       </div>
                     )}
 
+                    {/* **MAIN QUESTION IMAGE UPLOAD INPUT** */}
                     <div>
                       <label>Attach Image (optional)</label>
                       <input type="file" accept=".jpg,.jpeg,.png,.webp,image/*" onChange={e => setQuestionImage(e.target.files ? e.target.files[0] : null)} />
@@ -1140,7 +1187,7 @@ export const ESQ_Manage: React.FC = () => {
                 )}
               </div>
 
-              {/* Created Questions Preview List */}
+              {/* **CREATED QUESTIONS & OPTION IMAGES PREVIEW LIST** */}
               <div className="manage-card" style={{ marginTop: '20px' }}>
                 <h3>Questions in Selected Set ({safeQuestionsList.length})</h3>
                 <ul className="manage-list">
